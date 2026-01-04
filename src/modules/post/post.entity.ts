@@ -28,7 +28,7 @@ export class PostEntity {
 
     @Column({unique: true, length: 240, nullable: true})
     slug: string;
-
+    //jsonb 
     @Column({type: 'jsonb', nullable: true})
     content?: Record<string, unknown> | null;
 
