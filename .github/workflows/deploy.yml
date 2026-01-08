@@ -1,4 +1,4 @@
-name: CI/CD - Deploy via Self-Hosted Runner
+name: CI/CD - Sync Code Only
 
 on:
   push:
@@ -18,39 +18,4 @@ jobs:
           cd /home/ubuntu/gpsf-backend
           git fetch origin main
           git reset --hard origin/main
-
-      - name: Install dependencies
-        run: |
-          cd /home/ubuntu/gpsf-backend
-          npm install --legacy-peer-deps
-
-      - name: Run PostgreSQL (Docker)
-        run: |
-          cd /home/ubuntu/gpsf-backend
-          docker compose up -d
-          echo "⏳ Waiting for PostgreSQL to be ready..."
-          sleep 5
-
-      - name: Build NestJS app
-        run: |
-          cd /home/ubuntu/gpsf-backend
-          npm run build
-
-      - name: Restart PM2 app
-        run: |
-          export PATH=$PATH:/usr/local/bin
-          cd /home/ubuntu/gpsf-backend
-          pm2 restart api-gpsf  || pm2 start npm --name api-gpsf -- run start:prod
-          pm2 save
-
-      - name: Load PORT from .env
-        run: |
-          cd /home/ubuntu/gpsf-backend
-          PORT=$(grep -E '^PORT=' .env | cut -d '=' -f2-)
-          echo "PORT=$PORT" >> $GITHUB_ENV
-
-      - name: Health check
-        run: |
-          echo "🩺 Checking API health..."
-          sleep 5
-          curl -f http://localhost:${PORT}/api/v1/ || (echo "❌ API not responding" && exit 1)
+          echo "✅ Code synced with origin/main"
