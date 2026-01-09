@@ -9,6 +9,13 @@ jobs:
   deploy:
     runs-on: self-hosted
 
+    env:
+      DB_USERNAME: ${{ secrets.DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_NAME: ${{ secrets.DB_NAME }}
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_PORT: ${{ secrets.DB_PORT }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,4 +30,5 @@ jobs:
       - name: Build and run with Docker Compose
         run: |
           cd /home/ubuntu/gpsf-backend
-          docker compose -f docker-compose.prod.yml up --build
+          docker compose -f docker-compose.prod.yml down
+          docker compose -f docker-compose.prod.yml up -d --build
