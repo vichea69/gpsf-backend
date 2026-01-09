@@ -1,4 +1,4 @@
-name: CI/CD - Sync Code Only
+name: CI/CD - DockerFile
 
 on:
   push:
@@ -19,3 +19,8 @@ jobs:
           git fetch origin main
           git reset --hard origin/main
           echo "✅ Code synced with origin/main"
+
+      - name: Build and run with Docker Compose
+        run: |
+          cd /home/ubuntu/gpsf-backend
+          docker compose up -d --build
