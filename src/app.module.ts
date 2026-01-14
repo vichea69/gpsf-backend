@@ -15,6 +15,7 @@ import {LogoModule} from '@/modules/logo/logo.module';
 import {RoleModule} from '@/modules/roles/role.module';
 import {SiteSettingModule} from '@/modules/site-setting/site-setting.module';
 import {MediaModule} from "@/modules/media-manager/media.module";
+import { SectionModule } from './modules/section/section.module';
 
 
 @Module({
@@ -33,7 +34,8 @@ import {MediaModule} from "@/modules/media-manager/media.module";
         LogoModule,
         RoleModule,
         SiteSettingModule,
-        MediaModule
+        MediaModule,
+        SectionModule
     ],
     controllers: [AppController],
     providers: [AppService],

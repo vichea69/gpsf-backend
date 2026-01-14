@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, Delete, forwardRef, Get, Inject, Param, Post, Put, Query, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
 import { PageService } from '@/modules/page/page.service';
 import { CreatePageDto } from '@/modules/page/dto/create-page.dto';
 import { UpdatePageDto } from '@/modules/page/dto/update-page.dto';
@@ -9,11 +9,16 @@ import { Resource } from '@/modules/roles/enums/resource.enum';
 import { Action } from '@/modules/roles/enums/actions.enum';
 import { Role } from '@/modules/auth/enums/role.enum';
 import { User } from '@/modules/auth/decorators/user.decorator';
+import { SectionService } from '@/modules/section/section.service';
 import { UserEntity } from '@/modules/users/entities/user.entity';
 
 @Controller('pages')
 export class PageController {
-  constructor(private readonly pageService: PageService) {}
+  constructor(
+    private readonly pageService: PageService,
+    @Inject(forwardRef(() => SectionService))
+    private readonly sectionService: SectionService,
+  ) {}
 
   @Get()
   async findAll(
@@ -35,6 +40,7 @@ export class PageController {
       content: p.content,
       publishedAt: p.publishedAt ?? null,
       updatedAt: p.updatedAt,
+      sectionCount: p.sectionCount ?? 0,
       authorId: p.author
         ? { id: p.author.id, displayName: p.author.username, email: p.author.email }
         : null,
@@ -80,6 +86,19 @@ export class PageController {
         metaDescription: p.metaDescription ?? null,
       },
     };
+  }
+
+  @Get(':slug/section')
+  async getSections(
+    @Param('slug') slug: string,
+    @Query('includeDrafts') includeDrafts?: string,
+    @User() user?: UserEntity,
+  ) {
+    const isPrivileged = user?.role === Role.Admin || user?.role === Role.Editor;
+    const wantsDrafts = ['true','1','yes','y'].includes(String(includeDrafts).toLowerCase());
+    const canViewDrafts = (isPrivileged && (includeDrafts === undefined || wantsDrafts)) || (!isPrivileged && wantsDrafts);
+
+    return this.sectionService.getSectionsForPage(slug, canViewDrafts);
   }
 
   @Post()

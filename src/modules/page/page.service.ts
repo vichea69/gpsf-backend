@@ -43,6 +43,7 @@ export class PageService {
 
     const qb = this.pageRepository.createQueryBuilder('page')
       .leftJoinAndSelect('page.author', 'author')
+      .loadRelationCountAndMap('page.sectionCount', 'page.sections')
       .orderBy('page.updatedAt', 'DESC')
       .take(take)
       .skip(skip);

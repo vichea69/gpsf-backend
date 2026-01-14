@@ -1,5 +1,6 @@
-import {BeforeUpdate, Column, Entity, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn,} from 'typeorm';
+import { BeforeUpdate, Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import {UserEntity} from '@/modules/users/entities/user.entity';
+import { SectionEntity } from '@/modules/section/section.entity';
 
 export enum PageStatus {
     Draft = 'draft',
@@ -28,6 +29,12 @@ export class PageEntity {
 
     @ManyToOne(() => UserEntity, {nullable: true, onDelete: 'SET NULL'})
     author?: UserEntity | null;
+
+    @OneToMany(() => SectionEntity, (section) => section.page)
+    sections?: SectionEntity[];
+
+    // Populated via loadRelationCountAndMap in list queries
+    sectionCount?: number;
 
     // SEO fields
     @Column({type: 'varchar', length: 255, nullable: true})
