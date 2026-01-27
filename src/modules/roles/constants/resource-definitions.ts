@@ -70,6 +70,17 @@ export const RESOURCE_DEFINITIONS: ResourceDefinition[] = [
         ],
     },
     {
+        resource: Resource.Testimonials,
+        label: 'Testimonials',
+        description: 'Create and manage testimonials.',
+        actions: [
+            { action: Action.Read, label: 'View' },
+            { action: Action.Create, label: 'Create' },
+            { action: Action.Update, label: 'Update' },
+            { action: Action.Delete, label: 'Delete' },
+        ],
+    },
+    {
         resource: Resource.Menu,
         label: 'Menu',
         description: 'Organize the site navigation menu.',

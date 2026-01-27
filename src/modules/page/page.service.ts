@@ -15,7 +15,7 @@ export class PageService {
   ) {}
 
   async create(user: UserEntity, dto: CreatePageDto): Promise<PageEntity> {
-    const slug = this.generateSlug(dto.title);
+    const slug = this.generateSlug(dto.title?.en);
 
     const exists = await this.pageRepository.findOne({ where: { slug } });
     if (exists) {
@@ -25,7 +25,6 @@ export class PageService {
     const page = this.pageRepository.create({
       title: dto.title,
       slug,
-      content: dto.content,
       status: dto.status ?? PageStatus.Draft,
       publishedAt: dto.status === PageStatus.Published ? new Date() : null,
       author: user ?? null,
@@ -70,6 +69,17 @@ export class PageService {
     return anyPage;
   }
 
+  async findById(id: number, includeDrafts = false): Promise<PageEntity> {
+    const anyPage = await this.pageRepository.findOne({ where: { id }, relations: ['author'] });
+    if (!anyPage) {
+      throw new HttpException('Page not found', HttpStatus.NOT_FOUND);
+    }
+    if (!includeDrafts && anyPage.status !== PageStatus.Published) {
+      throw new HttpException('Page not found', HttpStatus.NOT_FOUND);
+    }
+    return anyPage;
+  }
+
   async update(slug: string, dto: UpdatePageDto): Promise<PageEntity> {
     // Include drafts when updating; editors often update unpublished pages
     const page = await this.findBySlug(slug, true);
@@ -87,7 +97,6 @@ export class PageService {
 
     Object.assign(page, {
       title: dto.title ?? page.title,
-      content: dto.content ?? page.content,
       status: dto.status ?? page.status,
       metaTitle: dto.metaTitle ?? page.metaTitle,
       metaDescription: dto.metaDescription ?? page.metaDescription,
@@ -101,10 +110,10 @@ export class PageService {
     await this.pageRepository.remove(page);
   }
 
-  private generateSlug(title: string): string {
-    if (!title || typeof title !== 'string' || !title.trim()) {
+  private generateSlug(titleEn: string): string {
+    if (!titleEn || typeof titleEn !== 'string' || !titleEn.trim()) {
       throw new HttpException('Invalid title', HttpStatus.BAD_REQUEST);
     }
-    return slugify(title, { lower: true, strict: true, trim: true });
+    return slugify(titleEn, { lower: true, strict: true, trim: true });
   }
 }

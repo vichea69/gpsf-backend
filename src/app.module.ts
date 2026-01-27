@@ -6,7 +6,6 @@ import ormconfig from "@/ormconfig";
 import {AuthModule} from '@/modules/auth/auth.module';
 import {UsersModule} from '@/modules/users/users.module';
 import {ConfigModule} from '@nestjs/config';
-import {ArticleModule} from '@/modules/articles/article.module';
 import {CategoryModule} from "@/modules/category/category.module";
 import {PageModule} from '@/modules/page/page.module';
 import {MenuModule} from '@/modules/menu/menu.module';
@@ -16,6 +15,7 @@ import {RoleModule} from '@/modules/roles/role.module';
 import {SiteSettingModule} from '@/modules/site-setting/site-setting.module';
 import {MediaModule} from "@/modules/media-manager/media.module";
 import { SectionModule } from './modules/section/section.module';
+import { TestimonialModule } from '@/modules/testimonial/testimonial.module';
 
 
 @Module({
@@ -26,7 +26,6 @@ import { SectionModule } from './modules/section/section.module';
         }),
         AuthModule,
         UsersModule,
-        ArticleModule,
         CategoryModule,
         PageModule,
         MenuModule,
@@ -35,7 +34,8 @@ import { SectionModule } from './modules/section/section.module';
         RoleModule,
         SiteSettingModule,
         MediaModule,
-        SectionModule
+        SectionModule,
+        TestimonialModule
     ],
     controllers: [AppController],
     providers: [AppService],

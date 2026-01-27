@@ -21,8 +21,13 @@ export class SectionController {
     constructor(private readonly sectionService: SectionService) {}
 
     @Get("page/:slug")
-    async getSectionsByPage(@Param("slug") slug: string): Promise<SectionResponse> {
-        return this.sectionService.getSectionsForPage(slug);
+    async getSectionsByPage(
+        @Param("slug") slug: string,
+        @Query("includePosts") includePosts?: string,
+    ): Promise<SectionResponse> {
+        const wantsPosts =
+            includePosts === undefined || ["true", "1", "yes", "y"].includes(String(includePosts).toLowerCase());
+        return this.sectionService.getSectionsForPage(slug, false, wantsPosts);
     }
 
     @Get()
@@ -30,11 +35,11 @@ export class SectionController {
         const sections = await this.sectionService.listSections(pageSlug);
         return sections.map((section) => ({
             id: section.id,
+            pageId: section.pageId,
             pageSlug: section.page.slug,
             blockType: section.blockType,
             title: section.title,
-            data: section.data,
-            metadata: section.metadata,
+            settings: section.settings ?? null,
             orderIndex: section.orderIndex,
             enabled: section.enabled,
             createdAt: section.createdAt,
@@ -47,11 +52,11 @@ export class SectionController {
         const section = await this.sectionService.findSectionById(id);
         return {
             id: section.id,
+            pageId: section.pageId,
             pageSlug: section.page.slug,
             blockType: section.blockType,
             title: section.title,
-            data: section.data,
-            metadata: section.metadata,
+            settings: section.settings ?? null,
             orderIndex: section.orderIndex,
             enabled: section.enabled,
             createdAt: section.createdAt,

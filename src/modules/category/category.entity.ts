@@ -5,12 +5,17 @@ import { UserEntity } from "@/modules/users/entities/user.entity";
 export class CategoryEntity {
   @PrimaryGeneratedColumn('increment')
   id: number;
-
-  @Column({ unique: true })
-  name: string;
-
-  @Column({ type: 'text', nullable: true, default: '' })
-  description?: string;
+  //Support english and khmer 
+  @Column({ type: 'jsonb', unique: true })
+  name: {
+    en: string;
+    km?: string;
+  };
+  @Column({ type: 'jsonb', nullable: true, default: () => "'{}'" })
+  description?: {
+    en: string;
+    km?: string;
+  };
 
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;

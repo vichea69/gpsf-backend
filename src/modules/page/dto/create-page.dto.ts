@@ -1,30 +1,64 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength, ValidateNested } from 'class-validator';
 import { PageStatus } from '@/modules/page/page.entity';
 
-export class CreatePageDto {
+export class LocalizedTitleDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(200)
   @MinLength(2)
-  title: string;
+  en: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  km?: string;
+}
+
+export class LocalizedMetaTitleDto {
   @IsString()
   @IsNotEmpty()
-  content: string;
+  @MaxLength(255)
+  @MinLength(2)
+  en: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  km?: string;
+}
+
+export class LocalizedMetaDescriptionDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  @MinLength(2)
+  en: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  km?: string;
+}
+
+export class CreatePageDto {
+  @ValidateNested()
+  @Type(() => LocalizedTitleDto)
+  title: LocalizedTitleDto;
 
   @IsEnum(PageStatus)
   @IsOptional()
   status?: PageStatus;
 
   // SEO
-  @IsString()
   @IsOptional()
-  @MaxLength(255)
-  metaTitle?: string;
+  @ValidateNested()
+  @Type(() => LocalizedMetaTitleDto)
+  metaTitle?: LocalizedMetaTitleDto;
 
-  @IsString()
   @IsOptional()
-  @MaxLength(500)
-  metaDescription?: string;
+  @ValidateNested()
+  @Type(() => LocalizedMetaDescriptionDto)
+  metaDescription?: LocalizedMetaDescriptionDto;
 
 }

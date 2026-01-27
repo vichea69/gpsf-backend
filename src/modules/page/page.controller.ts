@@ -25,29 +25,31 @@ export class PageController {
     @Query('page') page?: number,
     @Query('pageSize') pageSize?: number,
     @Query('includeDrafts') includeDrafts?: string,
+    @Query('lang') lang?: string,
     @User() user?: UserEntity,
   ) {
     const current = Math.max(Number(page) || 1, 1);
     const size = Math.min(Math.max(Number(pageSize) || 10, 1), 50);
+    const resolvedLang = this.normalizeLang(lang);
     // Always include both draft and published pages
     const { items, total } = await this.pageService.findAll(current, size, true);
 
     const data = items.map((p) => ({
       id: p.id,
-      title: p.title,
       slug: p.slug,
+      title: this.pickLocalized(p.title, resolvedLang),
       status: p.status,
-      content: p.content,
       publishedAt: p.publishedAt ?? null,
-      updatedAt: p.updatedAt,
       sectionCount: p.sectionCount ?? 0,
+       seo: {
+        metaTitle: this.pickLocalized(p.metaTitle, resolvedLang),
+        metaDescription: this.pickLocalized(p.metaDescription, resolvedLang),
+      },
       authorId: p.author
         ? { id: p.author.id, displayName: p.author.username, email: p.author.email }
         : null,
-      seo: {
-        metaTitle: p.metaTitle ?? null,
-        metaDescription: p.metaDescription ?? null,
-      },
+      createdAt: p.createdAt,
+      updatedAt: p.updatedAt,
     }));
 
     // Return minimal paginated shape
@@ -63,10 +65,12 @@ export class PageController {
   async findOne(
     @Param('slug') slug: string,
     @Query('includeDrafts') includeDrafts?: string,
+    @Query('lang') lang?: string,
     @User() user?: UserEntity,
   ) {
     const isPrivileged = user?.role === Role.Admin || user?.role === Role.Editor;
     const wantsDrafts = ['true','1','yes','y'].includes(String(includeDrafts).toLowerCase());
+    const resolvedLang = this.normalizeLang(lang);
     // Allow drafts if:
     // - Admin/Editor (default, unless includeDrafts=false), or
     // - Client explicitly asks via includeDrafts=true (useful for previews)
@@ -74,16 +78,16 @@ export class PageController {
     const p = await this.pageService.findBySlug(slug, canViewDrafts);
     return {
       id: p.id,
-      title: p.title,
+      title: this.pickLocalized(p.title, resolvedLang),
       slug: p.slug,
       status: p.status,
-      content: p.content,
       publishedAt: p.publishedAt ?? null,
+      createdAt: p.createdAt,
       updatedAt: p.updatedAt,
       authorId: p.author ? { id: p.author.id, displayName: p.author.username, email: p.author.email } : null,
       seo: {
-        metaTitle: p.metaTitle ?? null,
-        metaDescription: p.metaDescription ?? null,
+        metaTitle: this.pickLocalized(p.metaTitle, resolvedLang),
+        metaDescription: this.pickLocalized(p.metaDescription, resolvedLang),
       },
     };
   }
@@ -92,13 +96,16 @@ export class PageController {
   async getSections(
     @Param('slug') slug: string,
     @Query('includeDrafts') includeDrafts?: string,
+    @Query('includePosts') includePosts?: string,
     @User() user?: UserEntity,
   ) {
     const isPrivileged = user?.role === Role.Admin || user?.role === Role.Editor;
     const wantsDrafts = ['true','1','yes','y'].includes(String(includeDrafts).toLowerCase());
     const canViewDrafts = (isPrivileged && (includeDrafts === undefined || wantsDrafts)) || (!isPrivileged && wantsDrafts);
+    const wantsPosts =
+      includePosts === undefined || ['true','1','yes','y'].includes(String(includePosts).toLowerCase());
 
-    return this.sectionService.getSectionsForPage(slug, canViewDrafts);
+    return this.sectionService.getSectionsForPage(slug, canViewDrafts, wantsPosts);
   }
 
   @Post()
@@ -122,5 +129,26 @@ export class PageController {
   @Permissions({ resource: Resource.Pages, actions: [Action.Delete] })
   remove(@Param('slug') slug: string) {
     return this.pageService.remove(slug);
+  }
+
+  private normalizeLang(lang?: string): 'en' | 'km' | undefined {
+    const normalized = String(lang ?? '').toLowerCase();
+    if (normalized === 'en' || normalized === 'km') {
+      return normalized;
+    }
+    return undefined;
+  }
+
+  private pickLocalized<T extends { en?: string; km?: string } | null | undefined>(
+    value: T,
+    lang?: 'en' | 'km',
+  ) {
+    if (!lang) {
+      return value ?? null;
+    }
+    if (!value) {
+      return null;
+    }
+    return value[lang] ?? value.en ?? value.km ?? null;
   }
 }

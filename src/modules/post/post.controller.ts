@@ -39,6 +39,13 @@ export class PostController {
     return this.postService.findAll().then((items) => items.map((post) => this.toPostResponse(post)));
   }
 
+  @Get('category/:categoryId')
+  findByCategory(@Param('categoryId', ParseIntPipe) categoryId: number) {
+    return this.postService
+      .findByCategory(categoryId)
+      .then((items) => items.map((post) => this.toPostResponse(post)));
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.postService.findOne(id).then((post) => this.toPostResponse(post));

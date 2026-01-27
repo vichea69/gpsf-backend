@@ -1,33 +1,71 @@
-import { IsBoolean, IsNumber, IsObject, IsOptional, IsString, Min } from "class-validator";
-import { IsJsonPayload } from "@/modules/section/decorators/is-json-payload.decorator";
+import { Type } from "class-transformer";
+import {
+    IsArray,
+    IsBoolean,
+    IsEnum,
+    IsInt,
+    IsOptional,
+    IsString,
+    MaxLength,
+    Min,
+    ValidateNested,
+} from "class-validator";
+import { SectionBlockType, SectionSettings } from "../section.entity";
+
+export class LocalizedTitleDto {
+    @IsOptional()
+    @IsString()
+    @MaxLength(200)
+    en?: string;
+
+    @IsOptional()
+    @IsString()
+    @MaxLength(200)
+    km?: string;
+}
+
+export class SectionSettingsDto {
+    @IsOptional()
+    @IsArray()
+    @IsInt({ each: true })
+    categoryIds?: number[];
+
+    @IsOptional()
+    @IsInt()
+    @Min(1)
+    limit?: number;
+
+    @IsOptional()
+    @IsEnum({ manual: "manual", latest: "latest" })
+    sort?: SectionSettings["sort"];
+}
 
 export class UpdateSectionDto {
-    @IsString()
     @IsOptional()
-    pageSlug?: string;
+    @IsInt()
+    @Min(1)
+    pageId?: number;
 
-    @IsString()
     @IsOptional()
-    blockType?: string;
+    @IsEnum(SectionBlockType)
+    blockType?: SectionBlockType;
 
-    @IsString()
     @IsOptional()
-    title?: string;
+    @ValidateNested()
+    @Type(() => LocalizedTitleDto)
+    title?: LocalizedTitleDto;
 
-    @IsJsonPayload({ message: "data must be an object or array" })
     @IsOptional()
-    data?: Record<string, unknown> | unknown[];
+    @ValidateNested()
+    @Type(() => SectionSettingsDto)
+    settings?: SectionSettingsDto | null;
 
-    @IsNumber()
     @IsOptional()
+    @IsInt()
     @Min(0)
     orderIndex?: number;
 
+    @IsOptional()
     @IsBoolean()
-    @IsOptional()
     enabled?: boolean;
-
-    @IsObject()
-    @IsOptional()
-    metadata?: Record<string, unknown>;
 }

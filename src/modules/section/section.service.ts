@@ -1,22 +1,25 @@
 import { forwardRef, HttpException, HttpStatus, Inject, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, DeepPartial } from "typeorm";
-import { SectionEntity } from "./section.entity";
-import { SectionResponse, SectionBlock } from "./types/section-response-interface";
+import { Repository, DeepPartial, In } from "typeorm";
+import { SectionBlockType, SectionEntity } from "./section.entity";
+import { SectionResponse, SectionBlock, SectionBlockPost } from "./types/section-response-interface";
 import { PageService } from "@/modules/page/page.service";
 import { CreateSectionDto } from "./dto/create-section.dto";
 import { UpdateSectionDto } from "./dto/update-section.dto";
+import { PostEntity, PostStatus } from "@/modules/post/post.entity";
 
 @Injectable()
 export class SectionService {
     constructor(
         @InjectRepository(SectionEntity)
         private readonly sectionRepository: Repository<SectionEntity>,
+        @InjectRepository(PostEntity)
+        private readonly postRepository: Repository<PostEntity>,
         @Inject(forwardRef(() => PageService))
         private readonly pageService: PageService,
     ) {}
 
-    async getSectionsForPage(slug: string, includeDrafts = false): Promise<SectionResponse> {
+    async getSectionsForPage(slug: string, includeDrafts = false, includePosts = false): Promise<SectionResponse> {
         const safeSlug = slug?.trim();
         if (!safeSlug) {
             throw new HttpException("Page slug is required", HttpStatus.BAD_REQUEST);
@@ -29,10 +32,70 @@ export class SectionService {
             order: { orderIndex: "ASC", createdAt: "ASC" },
         });
 
+        const postsByCategoryId = new Map<number, SectionBlockPost[]>();
+        if (includePosts) {
+            const categoryIds = [
+                ...new Set(
+                    sections
+                        .filter((section) => section.blockType === SectionBlockType.POST_LIST)
+                        .flatMap((section) => section.settings?.categoryIds ?? [])
+                        .filter((id): id is number => typeof id === "number"),
+                ),
+            ];
+            if (categoryIds.length) {
+                const where = includeDrafts
+                    ? { category: { id: In(categoryIds) } }
+                    : { category: { id: In(categoryIds) }, status: PostStatus.Published };
+
+                const posts = await this.postRepository.find({
+                    where,
+                    relations: ["author", "category", "page", "images"],
+                    order: { createdAt: "DESC" },
+                });
+
+                posts.forEach((post) => {
+                    const categoryId = post.category?.id;
+                    if (!categoryId) {
+                        return;
+                    }
+                    const list = postsByCategoryId.get(categoryId) ?? [];
+                    list.push(this.toPostBlock(post));
+                    postsByCategoryId.set(categoryId, list);
+                });
+            }
+        }
+
         return {
             page: page.title,
             slug: page.slug,
-            blocks: sections.map((section) => this.toBlock(section)),
+            blocks: sections.map((section) => {
+                const block = this.toBlock(section);
+                if (!includePosts) {
+                    return block;
+                }
+
+                if (section.blockType !== SectionBlockType.POST_LIST) {
+                    block.posts = [];
+                    return block;
+                }
+
+                const categoryIds = section.settings?.categoryIds ?? [];
+                if (!categoryIds.length) {
+                    block.posts = [];
+                    return block;
+                }
+
+                const merged = categoryIds.flatMap((id) => postsByCategoryId.get(id) ?? []);
+                const unique = new Map<number, SectionBlockPost>();
+                merged.forEach((post) => unique.set(post.id, post));
+                let posts = Array.from(unique.values());
+                const limit = section.settings?.limit;
+                if (typeof limit === "number" && limit > 0) {
+                    posts = posts.slice(0, limit);
+                }
+                block.posts = posts;
+                return block;
+            }),
         };
     }
 
@@ -62,13 +125,13 @@ export class SectionService {
     }
 
     async createSection(dto: CreateSectionDto): Promise<SectionEntity> {
-        const page = await this.pageService.findBySlug(dto.pageSlug, true);
+        const page = await this.pageService.findById(dto.pageId, true);
         const section = this.sectionRepository.create({
             page,
-            blockType: dto.blockType.trim(),
-            title: dto.title?.trim() ?? null,
-            data: dto.data ?? {},
-            metadata: dto.metadata ?? null,
+            pageId: page.id,
+            blockType: dto.blockType,
+            title: dto.title,
+            settings: dto.settings ?? null,
             orderIndex: dto.orderIndex ?? 0,
             enabled: dto.enabled ?? true,
         } as DeepPartial<SectionEntity>);
@@ -79,20 +142,19 @@ export class SectionService {
     async updateSection(id: number, dto: UpdateSectionDto): Promise<SectionEntity> {
         const section = await this.findSectionById(id);
 
-        if (dto.pageSlug) {
-            section.page = await this.pageService.findBySlug(dto.pageSlug, true);
+        if (dto.pageId) {
+            const page = await this.pageService.findById(dto.pageId, true);
+            section.page = page;
+            section.pageId = page.id;
         }
         if (dto.blockType) {
             section.blockType = dto.blockType;
         }
         if (dto.title !== undefined) {
-            section.title = dto.title;
+            section.title = { ...section.title, ...dto.title };
         }
-        if (dto.data) {
-            section.data = dto.data;
-        }
-        if (dto.metadata !== undefined) {
-            section.metadata = dto.metadata;
+        if (dto.settings !== undefined) {
+            section.settings = dto.settings ?? undefined;
         }
         if (dto.orderIndex !== undefined) {
             section.orderIndex = dto.orderIndex;
@@ -113,13 +175,43 @@ export class SectionService {
         return {
             id: section.id,
             type: section.blockType,
-            title: section.title ?? null,
-            data: section.data ?? {},
-            metadata: section.metadata ?? null,
+            title: section.title,
+            settings: section.settings ?? null,
             orderIndex: section.orderIndex,
             enabled: section.enabled,
             createdAt: section.createdAt,
             updatedAt: section.updatedAt,
+        };
+    }
+
+    private toPostBlock(post: PostEntity): SectionBlockPost {
+        const images = [...(post.images ?? [])].sort((a, b) => {
+            if (a.sortOrder === b.sortOrder) {
+                const aId = a.id ?? Number.MAX_SAFE_INTEGER;
+                const bId = b.id ?? Number.MAX_SAFE_INTEGER;
+                return aId - bId;
+            }
+            return a.sortOrder - b.sortOrder;
+        });
+
+        return {
+            id: post.id,
+            title: post.title,
+            slug: post.slug ?? null,
+            content: post.content ?? null,
+            status: post.status,
+            images: images.map((image) => ({
+                id: image.id,
+                url: image.url,
+                sortOrder: image.sortOrder,
+            })),
+            createdAt: post.createdAt,
+            updatedAt: post.updatedAt,
+            author: post.author
+                ? { id: post.author.id, displayName: post.author.username, email: post.author.email }
+                : null,
+            category: post.category ? { id: post.category.id, name: post.category.name } : null,
+            page: post.page ? { id: post.page.id, title: post.page.title, slug: post.page.slug } : null,
         };
     }
 }

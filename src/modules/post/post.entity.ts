@@ -8,31 +8,31 @@ import {
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from 'typeorm';
-import {UserEntity} from '@/modules/users/entities/user.entity';
-import {CategoryEntity} from '@/modules/category/category.entity';
-import {PageEntity} from '@/modules/page/page.entity';
-import {PostImageEntity} from '@/modules/post/post-image.entity';
+import { UserEntity } from '@/modules/users/entities/user.entity';
+import { CategoryEntity } from '@/modules/category/category.entity';
+import { PageEntity } from '@/modules/page/page.entity';
+import { PostImageEntity } from '@/modules/post/post-image.entity';
 
 export enum PostStatus {
     Draft = 'draft',
     Published = 'published'
 }
 
-@Entity({name: 'posts'})
+@Entity({ name: 'posts' })
 export class PostEntity {
     @PrimaryGeneratedColumn('increment')
     id: number;
 
-    @Column({length: 200})
+    @Column({ length: 200 })
     title: string;
 
-    @Column({unique: true, length: 240, nullable: true})
+    @Column({ unique: true, length: 240, nullable: true })
     slug: string;
     //jsonb 
-    @Column({type: 'jsonb', nullable: true})
+    @Column({ type: 'jsonb', nullable: true })
     content?: Record<string, unknown> | null;
 
-    @Column({type: 'enum', enum: PostStatus, default: PostStatus.Draft})
+    @Column({ type: 'enum', enum: PostStatus, default: PostStatus.Draft })
     status: PostStatus;
 
     @OneToMany(() => PostImageEntity, (image) => image.post, {
@@ -41,22 +41,19 @@ export class PostEntity {
         orphanedRowAction: 'delete',
     })
     images?: PostImageEntity[];
-
-    @ManyToOne(() => UserEntity, {nullable: true, onDelete: 'SET NULL'})
+    @ManyToOne(() => UserEntity, { nullable: true, onDelete: 'SET NULL' })
     author?: UserEntity | null;
 
-    // Optional category for CMS grouping
-    @ManyToOne(() => CategoryEntity, {nullable: true, onDelete: 'SET NULL'})
+    @ManyToOne(() => CategoryEntity, { nullable: true, onDelete: 'SET NULL' })
     category?: CategoryEntity | null;
 
-    // Optional page to associate post with a page (e.g., Blog page)
-    @ManyToOne(() => PageEntity, {nullable: true, onDelete: 'SET NULL'})
+    @ManyToOne(() => PageEntity, { nullable: true, onDelete: 'SET NULL' })
     page?: PageEntity | null;
 
-    @CreateDateColumn({type: 'timestamp'})
+    @CreateDateColumn({ type: 'timestamp' })
     createdAt: Date;
 
-    @UpdateDateColumn({type: 'timestamp'})
+    @UpdateDateColumn({ type: 'timestamp' })
     updatedAt: Date;
 
     @BeforeUpdate()

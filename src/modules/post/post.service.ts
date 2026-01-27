@@ -76,6 +76,21 @@ export class PostService {
         return posts.map((post) => this.sortPostImages(post));
     }
 
+    async findByCategory(categoryId: number): Promise<PostEntity[]> {
+        const category = await this.categoryRepository.findOne({where: {id: categoryId}});
+        if (!category) {
+            throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+        }
+
+        const posts = await this.postRepository.find({
+            where: {category: {id: categoryId}},
+            order: {createdAt: 'DESC'},
+            relations: ['author', 'category', 'page', 'images'],
+        });
+
+        return posts.map((post) => this.sortPostImages(post));
+    }
+
     async findOne(id: number): Promise<PostEntity> {
         const post = await this.postRepository.findOne({
             where: {id},

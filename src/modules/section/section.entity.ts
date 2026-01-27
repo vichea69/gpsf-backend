@@ -1,36 +1,62 @@
-import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
-import { PageEntity } from "@/modules/page/page.entity";
-import type { SectionDataPayload } from "@/modules/section/types/section-response-interface";
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import { PageEntity } from '@/modules/page/page.entity';
 
-@Entity({ name: "sections" })
+export enum SectionBlockType {
+  HERO_BANNER = 'hero_banner',
+  STATS = 'stats',
+  BENEFITS = 'benefits',
+  POST_LIST = 'post_list',
+  WORK_GROUPS = 'work_groups',
+}
+
+export type SectionSettings = {
+  categoryIds?: number[];      
+  limit?: number;              
+  sort?: 'manual' | 'latest'; 
+};
+
+@Entity({ name: 'sections' })
 export class SectionEntity {
-    @PrimaryGeneratedColumn("increment")
-    id: number;
+  @PrimaryGeneratedColumn('increment')
+  id: number;
 
-    @ManyToOne(() => PageEntity, (page) => page.sections, { nullable: false, onDelete: "CASCADE" })
-    page: PageEntity;
 
-    @Column({ length: 120 })
-    blockType: string;
+  @Column({ type: 'int' })
+  pageId: number;
 
-    @Column({ length: 200, nullable: true })
-    title?: string;
+  @ManyToOne(() => PageEntity, (page) => page.sections, {
+    nullable: false,
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'pageId' })
+  page: PageEntity;
 
-    @Column({ type: "jsonb" })
-    data: SectionDataPayload;
+  @Column({ type: 'enum', enum: SectionBlockType })
+  blockType: SectionBlockType;
 
-    @Column({ type: "jsonb", nullable: true })
-    metadata?: SectionDataPayload;
+  @Column({ type: 'jsonb'})
+  title: { en: string; km?: string };
 
-    @Column({ type: "int", default: 0 })
-    orderIndex: number;
+  @Column({ type: 'jsonb', nullable: true })
+  settings?: SectionSettings;
 
-    @Column({ type: "boolean", default: true })
-    enabled: boolean;
+  @Column({ type: 'int', default: 0 })
+  orderIndex: number;
 
-    @CreateDateColumn({ type: "timestamp" })
-    createdAt: Date;
+  @Column({ type: 'boolean', default: true })
+  enabled: boolean;
 
-    @UpdateDateColumn({ type: "timestamp" })
-    updatedAt: Date;
+  @CreateDateColumn({type: 'timestamp'})
+  createdAt: Date;
+
+  @UpdateDateColumn({type: 'timestamp'})
+  updatedAt: Date;
 }

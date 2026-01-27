@@ -6,7 +6,7 @@ export class AddedMenuEntities1756000000000 implements MigrationInterface {
     public async up(queryRunner: QueryRunner): Promise<void> {
         // Create menus table
         await queryRunner.query(`
-            CREATE TABLE "menus" (
+            CREATE TABLE IF NOT EXISTS "menus" (
                 "id" SERIAL NOT NULL,
                 "name" character varying(120) NOT NULL,
                 "slug" character varying(140) NOT NULL,
@@ -21,7 +21,7 @@ export class AddedMenuEntities1756000000000 implements MigrationInterface {
 
         // Create menu_items table
         await queryRunner.query(`
-            CREATE TABLE "menu_items" (
+            CREATE TABLE IF NOT EXISTS "menu_items" (
                 "id" SERIAL NOT NULL,
                 "menuId" integer NOT NULL,
                 "parentId" integer,
@@ -41,9 +41,9 @@ export class AddedMenuEntities1756000000000 implements MigrationInterface {
         `);
 
         // Helpful indexes
-        await queryRunner.query(`CREATE INDEX "IDX_menu_items_menuId" ON "menu_items" ("menuId")`);
-        await queryRunner.query(`CREATE INDEX "IDX_menu_items_parentId" ON "menu_items" ("parentId")`);
-        await queryRunner.query(`CREATE INDEX "IDX_menu_items_orderIndex" ON "menu_items" ("orderIndex")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_menu_items_menuId" ON "menu_items" ("menuId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_menu_items_parentId" ON "menu_items" ("parentId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_menu_items_orderIndex" ON "menu_items" ("orderIndex")`);
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
@@ -54,5 +54,4 @@ export class AddedMenuEntities1756000000000 implements MigrationInterface {
         await queryRunner.query(`DROP TABLE IF EXISTS "menus"`);
     }
 }
-
 
