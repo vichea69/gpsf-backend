@@ -3,7 +3,10 @@ import {
     Column,
     CreateDateColumn,
     Entity,
+    JoinColumn,
+    JoinTable,
     ManyToOne,
+    ManyToMany,
     OneToMany,
     PrimaryGeneratedColumn,
     UpdateDateColumn,
@@ -12,6 +15,7 @@ import { UserEntity } from '@/modules/users/entities/user.entity';
 import { CategoryEntity } from '@/modules/category/category.entity';
 import { PageEntity } from '@/modules/page/page.entity';
 import { PostImageEntity } from '@/modules/post/post-image.entity';
+import { SectionEntity } from '@/modules/section/section.entity';
 
 export enum PostStatus {
     Draft = 'draft',
@@ -23,12 +27,15 @@ export class PostEntity {
     @PrimaryGeneratedColumn('increment')
     id: number;
 
-    @Column({ length: 200 })
-    title: string;
+    @Column({ type:'jsonb' })
+    title: { en: string; km?: string };
+
+    @Column({ type: 'jsonb', nullable: true })
+    description?: { en: string; km?: string };
 
     @Column({ unique: true, length: 240, nullable: true })
     slug: string;
-    //jsonb 
+
     @Column({ type: 'jsonb', nullable: true })
     content?: Record<string, unknown> | null;
 
@@ -49,6 +56,17 @@ export class PostEntity {
 
     @ManyToOne(() => PageEntity, { nullable: true, onDelete: 'SET NULL' })
     page?: PageEntity | null;
+
+    @Column({ type: 'int', nullable: true })
+    sectionId?: number | null;
+
+    @ManyToOne(() => SectionEntity, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'sectionId' })
+    section?: SectionEntity | null;
+
+    @ManyToMany(() => SectionEntity, (section) => section.posts)
+    @JoinTable({ name: 'post_sections' })
+    sections?: SectionEntity[];
 
     @CreateDateColumn({ type: 'timestamp' })
     createdAt: Date;

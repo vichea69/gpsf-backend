@@ -10,6 +10,7 @@ import {UserEntity} from '@/modules/users/entities/user.entity';
 import {R2Service} from '@/modules/post/r2.service';
 import {CategoryEntity} from '@/modules/category/category.entity';
 import {PageEntity} from '@/modules/page/page.entity';
+import {SectionEntity} from '@/modules/section/section.entity';
 import type {UploadedFilePayload} from '@/types/uploaded-file.type';
 
 @Injectable()
@@ -23,12 +24,14 @@ export class PostService {
         private readonly categoryRepository: Repository<CategoryEntity>,
         @InjectRepository(PageEntity)
         private readonly pageRepository: Repository<PageEntity>,
+        @InjectRepository(SectionEntity)
+        private readonly sectionRepository: Repository<SectionEntity>,
         private readonly r2: R2Service,
     ) {
     }
 
     async create(user: UserEntity, dto: CreatePostDto, files?: UploadedFilePayload[]): Promise<PostEntity> {
-        const slug = this.generateSlug(dto.title);
+        const slug = this.generateSlug(dto.title.en);
 
         const exists = await this.postRepository.findOne({where: {slug}});
         if (exists) {
@@ -38,6 +41,7 @@ export class PostService {
         const newPost = this.postRepository.create({
             title: dto.title,
             slug,
+            description: dto.description ?? undefined,
             content: dto.content ?? null,
             status: dto.status ?? PostStatus.Draft,
             author: user ?? null,
@@ -59,6 +63,28 @@ export class PostService {
             newPost.page = page;
         }
 
+        if (dto.sectionId !== undefined) {
+            if (dto.sectionId === null as any) {
+                newPost.section = null;
+                newPost.sectionId = null;
+            } else {
+                const section = await this.sectionRepository.findOne({where: {id: dto.sectionId}});
+                if (!section) {
+                    throw new HttpException('Section not found', HttpStatus.UNPROCESSABLE_ENTITY);
+                }
+                newPost.section = section;
+                newPost.sectionId = section.id;
+            }
+        }
+
+        if (dto.sectionIds !== undefined) {
+            if (dto.sectionIds.length === 0) {
+                newPost.sections = [];
+            } else {
+                newPost.sections = await this.resolveSections(dto.sectionIds);
+            }
+        }
+
         const savedPost = await this.postRepository.save(newPost);
 
         if (files?.length) {
@@ -71,7 +97,7 @@ export class PostService {
     async findAll(): Promise<PostEntity[]> {
         const posts = await this.postRepository.find({
             order: {createdAt: 'DESC'},
-            relations: ['author', 'category', 'page', 'images'],
+            relations: ['author', 'category', 'page', 'images', 'sections', 'section'],
         });
         return posts.map((post) => this.sortPostImages(post));
     }
@@ -85,7 +111,7 @@ export class PostService {
         const posts = await this.postRepository.find({
             where: {category: {id: categoryId}},
             order: {createdAt: 'DESC'},
-            relations: ['author', 'category', 'page', 'images'],
+            relations: ['author', 'category', 'page', 'images', 'sections', 'section'],
         });
 
         return posts.map((post) => this.sortPostImages(post));
@@ -94,7 +120,7 @@ export class PostService {
     async findOne(id: number): Promise<PostEntity> {
         const post = await this.postRepository.findOne({
             where: {id},
-            relations: ['author', 'category', 'page', 'images'],
+            relations: ['author', 'category', 'page', 'images', 'sections', 'section'],
         });
         if (!post) {
             throw new HttpException('Post not found', HttpStatus.NOT_FOUND);
@@ -105,20 +131,29 @@ export class PostService {
     async update(id: number, dto: UpdatePostDto, files?: UploadedFilePayload[]): Promise<PostEntity> {
         const post = await this.findOne(id);
 
-        if (dto.title && dto.title.trim() && dto.title !== post.title) {
-            const newSlug = this.generateSlug(dto.title);
+        if (dto.title?.en && dto.title.en.trim() && dto.title.en !== post.title.en) {
+            const newSlug = this.generateSlug(dto.title.en);
             const exists = await this.postRepository.findOne({where: {slug: newSlug}});
             if (exists && exists.id !== post.id) {
                 throw new HttpException('Post slug already exists', HttpStatus.UNPROCESSABLE_ENTITY);
             }
             post.slug = newSlug;
-            post.title = dto.title;
-        } else if (dto.title !== undefined) {
-            post.title = dto.title ?? post.title;
+        }
+
+        if (dto.title !== undefined) {
+            post.title = {...post.title, ...dto.title};
         }
 
         if (dto.content !== undefined) {
             post.content = dto.content ?? null;
+        }
+
+        if (dto.description !== undefined) {
+            const merged = {...(post.description ?? {en: ''}), ...dto.description};
+            if (!merged.en || !merged.en.trim()) {
+                throw new HttpException('Description en is required', HttpStatus.BAD_REQUEST);
+            }
+            post.description = merged;
         }
 
         if (dto.status !== undefined) {
@@ -146,6 +181,28 @@ export class PostService {
                     throw new HttpException('Page not found', HttpStatus.UNPROCESSABLE_ENTITY);
                 }
                 post.page = page;
+            }
+        }
+
+        if (dto.sectionId !== undefined) {
+            if (dto.sectionId === null as any) {
+                post.section = null;
+                post.sectionId = null;
+            } else {
+                const section = await this.sectionRepository.findOne({where: {id: dto.sectionId}});
+                if (!section) {
+                    throw new HttpException('Section not found', HttpStatus.UNPROCESSABLE_ENTITY);
+                }
+                post.section = section;
+                post.sectionId = section.id;
+            }
+        }
+
+        if (dto.sectionIds !== undefined) {
+            if (dto.sectionIds.length === 0) {
+                post.sections = [];
+            } else {
+                post.sections = await this.resolveSections(dto.sectionIds);
             }
         }
 
@@ -275,6 +332,15 @@ export class PostService {
         });
 
         return post;
+    }
+
+    private async resolveSections(sectionIds: number[]): Promise<SectionEntity[]> {
+        const uniqueIds = Array.from(new Set(sectionIds));
+        const sections = await this.sectionRepository.find({where: {id: In(uniqueIds)}});
+        if (sections.length !== uniqueIds.length) {
+            throw new HttpException('Section not found', HttpStatus.UNPROCESSABLE_ENTITY);
+        }
+        return sections;
     }
 
     private generateObjectKey(originalName: string): string {

@@ -3,14 +3,17 @@ import {
   CreateDateColumn,
   Entity,
   JoinColumn,
+  ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { PageEntity } from '@/modules/page/page.entity';
+import { PostEntity } from '@/modules/post/post.entity';
 
 export enum SectionBlockType {
   HERO_BANNER = 'hero_banner',
+  TEXT_BLOCK = 'text_block',
   STATS = 'stats',
   BENEFITS = 'benefits',
   POST_LIST = 'post_list',
@@ -28,7 +31,6 @@ export class SectionEntity {
   @PrimaryGeneratedColumn('increment')
   id: number;
 
-
   @Column({ type: 'int' })
   pageId: number;
 
@@ -39,11 +41,17 @@ export class SectionEntity {
   @JoinColumn({ name: 'pageId' })
   page: PageEntity;
 
+  @ManyToMany(() => PostEntity, (post) => post.sections)
+  posts?: PostEntity[];
+
   @Column({ type: 'enum', enum: SectionBlockType })
   blockType: SectionBlockType;
 
   @Column({ type: 'jsonb'})
   title: { en: string; km?: string };
+
+  @Column({ type: 'jsonb', nullable: true })
+  description?: { en: string; km?: string };
 
   @Column({ type: 'jsonb', nullable: true })
   settings?: SectionSettings;

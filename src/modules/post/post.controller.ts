@@ -110,6 +110,7 @@ export class PostController {
     return {
       id: post.id,
       title: post.title,
+      description: post.description ?? null,
       slug: post.slug,
       content: post.content,
       status: post.status,
@@ -126,6 +127,16 @@ export class PostController {
         : null,
       category: post.category ? { id: post.category.id, name: post.category.name } : null,
       page: post.page ? { id: post.page.id, title: post.page.title, slug: post.page.slug } : null,
+      section: post.section
+        ? { id: post.section.id, pageId: post.section.pageId, blockType: post.section.blockType, title: post.section.title }
+        : null,
+      sections:
+        post.sections?.map((section) => ({
+          id: section.id,
+          pageId: section.pageId,
+          blockType: section.blockType,
+          title: section.title,
+        })) ?? [],
     };
   }
 }

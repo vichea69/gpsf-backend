@@ -8,9 +8,10 @@ import { CategoryEntity } from '@/modules/category/category.entity';
 import { PageEntity } from '@/modules/page/page.entity';
 import { PostImageEntity } from '@/modules/post/post-image.entity';
 import { RoleModule } from '@/modules/roles/role.module';
+import { SectionEntity } from '@/modules/section/section.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([PostEntity, PostImageEntity, CategoryEntity, PageEntity]), RoleModule],
+  imports: [TypeOrmModule.forFeature([PostEntity, PostImageEntity, CategoryEntity, PageEntity, SectionEntity]), RoleModule],
   controllers: [PostController],
   providers: [PostService, R2Service],
   exports: [PostService],

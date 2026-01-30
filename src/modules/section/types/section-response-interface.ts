@@ -11,6 +11,7 @@ export interface SectionBlock {
     id: number;
     type: SectionBlockType;
     title: LocalizedText;
+    description?: LocalizedText | null;
     settings?: SectionSettings | null;
     orderIndex: number;
     enabled: boolean;
@@ -44,7 +45,7 @@ export interface SectionBlockPostPage {
 
 export interface SectionBlockPost {
     id: number;
-    title: string;
+    title: LocalizedText;
     slug: string | null;
     content: Record<string, unknown> | null;
     status: string;

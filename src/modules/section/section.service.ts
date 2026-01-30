@@ -33,6 +33,7 @@ export class SectionService {
         });
 
         const postsByCategoryId = new Map<number, SectionBlockPost[]>();
+        const postsBySectionId = new Map<number, SectionBlockPost[]>();
         if (includePosts) {
             const categoryIds = [
                 ...new Set(
@@ -63,6 +64,38 @@ export class SectionService {
                     postsByCategoryId.set(categoryId, list);
                 });
             }
+
+            const sectionIds = [
+                ...new Set(
+                    sections
+                        .filter((section) =>
+                            [SectionBlockType.HERO_BANNER, SectionBlockType.STATS, SectionBlockType.BENEFITS].includes(
+                                section.blockType,
+                            ),
+                        )
+                        .map((section) => section.id),
+                ),
+            ];
+            if (sectionIds.length) {
+                const where = includeDrafts
+                    ? { sectionId: In(sectionIds) }
+                    : { sectionId: In(sectionIds), status: PostStatus.Published };
+                const posts = await this.postRepository.find({
+                    where,
+                    relations: ["author", "category", "page", "images"],
+                    order: { createdAt: "DESC" },
+                });
+
+                posts.forEach((post) => {
+                    const sectionId = post.sectionId;
+                    if (!sectionId) {
+                        return;
+                    }
+                    const list = postsBySectionId.get(sectionId) ?? [];
+                    list.push(this.toPostBlock(post));
+                    postsBySectionId.set(sectionId, list);
+                });
+            }
         }
 
         return {
@@ -75,6 +108,14 @@ export class SectionService {
                 }
 
                 if (section.blockType !== SectionBlockType.POST_LIST) {
+                    if (
+                        [SectionBlockType.HERO_BANNER, SectionBlockType.STATS, SectionBlockType.BENEFITS].includes(
+                            section.blockType,
+                        )
+                    ) {
+                        block.posts = postsBySectionId.get(section.id) ?? [];
+                        return block;
+                    }
                     block.posts = [];
                     return block;
                 }
@@ -131,6 +172,7 @@ export class SectionService {
             pageId: page.id,
             blockType: dto.blockType,
             title: dto.title,
+            description: dto.description ?? null,
             settings: dto.settings ?? null,
             orderIndex: dto.orderIndex ?? 0,
             enabled: dto.enabled ?? true,
@@ -152,6 +194,13 @@ export class SectionService {
         }
         if (dto.title !== undefined) {
             section.title = { ...section.title, ...dto.title };
+        }
+        if (dto.description !== undefined) {
+            const merged = { ...(section.description ?? { en: "" }), ...dto.description };
+            if (!merged.en || !merged.en.trim()) {
+                throw new HttpException("Description en is required", HttpStatus.BAD_REQUEST);
+            }
+            section.description = merged;
         }
         if (dto.settings !== undefined) {
             section.settings = dto.settings ?? undefined;
@@ -176,6 +225,7 @@ export class SectionService {
             id: section.id,
             type: section.blockType,
             title: section.title,
+            description: section.description ?? null,
             settings: section.settings ?? null,
             orderIndex: section.orderIndex,
             enabled: section.enabled,

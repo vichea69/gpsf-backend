@@ -24,6 +24,18 @@ export class LocalizedTitleDto {
     km?: string;
 }
 
+export class LocalizedDescriptionDto {
+    @IsOptional()
+    @IsString()
+    @MaxLength(500)
+    en?: string;
+
+    @IsOptional()
+    @IsString()
+    @MaxLength(500)
+    km?: string;
+}
+
 export class SectionSettingsDto {
     @IsOptional()
     @IsArray()
@@ -54,6 +66,11 @@ export class UpdateSectionDto {
     @ValidateNested()
     @Type(() => LocalizedTitleDto)
     title?: LocalizedTitleDto;
+
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => LocalizedDescriptionDto)
+    description?: LocalizedDescriptionDto;
 
     @IsOptional()
     @ValidateNested()
