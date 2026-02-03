@@ -1,4 +1,4 @@
-import {IsArray, IsEnum, IsInt, IsObject, IsOptional, IsString, Max, MaxLength, Min, ValidateNested} from 'class-validator';
+import {IsArray, IsDefined, IsEnum, IsInt, IsObject, IsOptional, IsString, Max, MaxLength, Min, ValidateNested} from 'class-validator';
 import {PostStatus} from '@/modules/post/post.entity';
 import {plainToInstance, Transform, Type} from 'class-transformer';
 
@@ -12,6 +12,16 @@ export class LocalizedTitleUpdateDto {
     @IsString()
     @MaxLength(200)
     km?: string;
+}
+
+export class LocalizedContentDto {
+    @IsDefined()
+    @IsObject()
+    en: Record<string, unknown>;
+
+    @IsOptional()
+    @IsObject()
+    km?: Record<string, unknown>;
 }
 
 export class UpdatePostDto {
@@ -48,15 +58,17 @@ export class UpdatePostDto {
         }
         if (typeof value === 'string') {
             try {
-                return JSON.parse(value);
+                const parsed = JSON.parse(value);
+                return plainToInstance(LocalizedContentDto, parsed);
             } catch {
                 return value;
             }
         }
-        return value;
+        return plainToInstance(LocalizedContentDto, value);
     })
-    @IsObject()
-    content?: Record<string, unknown> | null;
+    @ValidateNested()
+    @Type(() => LocalizedContentDto)
+    content?: LocalizedContentDto | null;
 
     @IsOptional()
     @Transform(({value}) => {

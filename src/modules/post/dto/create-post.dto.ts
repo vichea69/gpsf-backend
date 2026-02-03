@@ -14,6 +14,16 @@ export class LocalizedTitleDto {
     km?: string;
 }
 
+export class LocalizedContentDto {
+    @IsDefined()
+    @IsObject()
+    en: Record<string, unknown>;
+
+    @IsOptional()
+    @IsObject()
+    km?: Record<string, unknown>;
+}
+
 export class CreatePostDto {
     @IsDefined()
     @Transform(({value}) => {
@@ -48,15 +58,17 @@ export class CreatePostDto {
         }
         if (typeof value === 'string') {
             try {
-                return JSON.parse(value);
+                const parsed = JSON.parse(value);
+                return plainToInstance(LocalizedContentDto, parsed);
             } catch {
                 return value;
             }
         }
-        return value;
+        return plainToInstance(LocalizedContentDto, value);
     })
-    @IsObject()
-    content?: Record<string, unknown> | null;
+    @ValidateNested()
+    @Type(() => LocalizedContentDto)
+    content?: LocalizedContentDto | null;
 
     @IsOptional()
     @Transform(({value}) => {

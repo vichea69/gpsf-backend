@@ -27,7 +27,7 @@ export class PostEntity {
     @PrimaryGeneratedColumn('increment')
     id: number;
 
-    @Column({ type:'jsonb' })
+    @Column({ type: 'jsonb' })
     title: { en: string; km?: string };
 
     @Column({ type: 'jsonb', nullable: true })
@@ -37,7 +37,10 @@ export class PostEntity {
     slug: string;
 
     @Column({ type: 'jsonb', nullable: true })
-    content?: Record<string, unknown> | null;
+    content?: {
+        en: Record<string, unknown>;
+        km?: Record<string, unknown>
+    } | null;
 
     @Column({ type: 'enum', enum: PostStatus, default: PostStatus.Draft })
     status: PostStatus;

@@ -86,6 +86,9 @@ export class PostService {
         }
 
         const savedPost = await this.postRepository.save(newPost);
+        if (Array.isArray(savedPost)) {
+            throw new HttpException('Unexpected save result', HttpStatus.INTERNAL_SERVER_ERROR);
+        }
 
         if (files?.length) {
             await this.addImagesToPost(savedPost, files, 0);
