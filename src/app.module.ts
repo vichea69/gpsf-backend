@@ -16,6 +16,7 @@ import {SiteSettingModule} from '@/modules/site-setting/site-setting.module';
 import {MediaModule} from "@/modules/media-manager/media.module";
 import { SectionModule } from './modules/section/section.module';
 import { TestimonialModule } from '@/modules/testimonial/testimonial.module';
+import { WorkingGroupModule } from '@/modules/working-group/working-group.module';
 
 
 @Module({
@@ -35,7 +36,8 @@ import { TestimonialModule } from '@/modules/testimonial/testimonial.module';
         SiteSettingModule,
         MediaModule,
         SectionModule,
-        TestimonialModule
+        TestimonialModule,
+        WorkingGroupModule,
     ],
     controllers: [AppController],
     providers: [AppService],
