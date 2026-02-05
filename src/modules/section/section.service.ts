@@ -248,6 +248,7 @@ export class SectionService {
             id: post.id,
             title: post.title,
             slug: post.slug ?? null,
+            description: post.description ?? null,
             content: post.content ?? null,
             status: post.status,
             images: images.map((image) => ({

@@ -47,6 +47,7 @@ export interface SectionBlockPost {
     id: number;
     title: LocalizedText;
     slug: string | null;
+    description?: LocalizedText | null;
     content: Record<string, unknown> | null;
     status: string;
     images: SectionBlockPostImage[];
