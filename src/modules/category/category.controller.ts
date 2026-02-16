@@ -135,12 +135,10 @@ export class CategoryController {
             slug: post.slug,
             content: post.content,
             status: post.status,
-            images:
-                post.images?.map((image) => ({
-                    id: image.id,
-                    url: image.url,
-                    sortOrder: image.sortOrder,
-                })) ?? [],
+            coverImage: post.coverImage ?? null,
+            document: post.document ?? null,
+            documentThumbnail: post.documentThumbnail ?? null,
+            link: post.link ?? null,
             createdAt: post.createdAt,
             updatedAt: post.updatedAt,
             author: post.author

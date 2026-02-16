@@ -1,9 +1,9 @@
-import { IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
-import { Sign } from 'crypto';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class UpdateLogoDto {
+  // Optional: provide an image URL (e.g. from media manager) to replace the current logo
   @IsOptional()
-  @IsUrl()
+  @IsString()
   @MaxLength(600)
   url?: string;
 

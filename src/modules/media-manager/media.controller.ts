@@ -1,4 +1,16 @@
-import {Controller, Delete, Get, Param, ParseIntPipe, Post, Put, UploadedFiles, UseInterceptors} from "@nestjs/common";
+import {
+    BadRequestException,
+    Controller,
+    Delete,
+    Get,
+    Param,
+    ParseIntPipe,
+    Post,
+    Put,
+    Query,
+    UploadedFiles,
+    UseInterceptors
+} from "@nestjs/common";
 import {FilesInterceptor} from "@nestjs/platform-express";
 import {MediaService} from "@/modules/media-manager/media.service";
 import {MediasResponseInterface} from "@/modules/media-manager/types/medias-response-interface";
@@ -11,8 +23,12 @@ export class MediaController {
 
     //Get all Item in media
     @Get()
-    findAll(): Promise<MediasResponseInterface> {
-        return this.mediaService.findAll()
+    findAll(@Query('page') page?: number, @Query('pageSize') pageSize?: number): Promise<MediasResponseInterface> {
+        return this.mediaService.findAll(page, pageSize).then((result) => ({
+            success: true,
+            message: 'OK',
+            ...result,
+        }));
     }
 
     //Get by id
@@ -25,6 +41,9 @@ export class MediaController {
     @Post('upload')
     @UseInterceptors(FilesInterceptor('files', 20))
     upload(@UploadedFiles() files: Express.Multer.File[]) {
+        if (!files?.length) {
+            throw new BadRequestException('At least one file is required');
+        }
         return this.mediaService.upload(files);
     }
 
@@ -35,6 +54,9 @@ export class MediaController {
         @Param('id', ParseIntPipe) id: number,
         @UploadedFiles() files: Express.Multer.File[],
     ) {
+        if (!files?.length) {
+            throw new BadRequestException('File is required');
+        }
         return this.mediaService.replace(id, files[0]);
     }
 

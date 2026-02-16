@@ -39,6 +39,7 @@
     "cookie-parser": "^1.4.7",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
+    "node-poppler": "^9.1.1",
     "nodemailer": "^7.0.6",
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",

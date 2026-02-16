@@ -2,35 +2,39 @@ import {HttpException, HttpStatus, Injectable} from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
 import {In, Repository} from 'typeorm';
 import {PostEntity, PostStatus} from '@/modules/post/post.entity';
-import {PostImageEntity} from '@/modules/post/post-image.entity';
 import slugify from 'slugify';
 import {CreatePostDto} from '@/modules/post/dto/create-post.dto';
 import {UpdatePostDto} from '@/modules/post/dto/update-post.dto';
 import {UserEntity} from '@/modules/users/entities/user.entity';
-import {R2Service} from '@/modules/post/r2.service';
 import {CategoryEntity} from '@/modules/category/category.entity';
 import {PageEntity} from '@/modules/page/page.entity';
 import {SectionEntity} from '@/modules/section/section.entity';
 import type {UploadedFilePayload} from '@/types/uploaded-file.type';
+import {MediaService} from '@/modules/media-manager/media.service';
+import type {MediaResponseInterface} from '@/modules/media-manager/types/media-response-interface';
+import * as fs from 'node:fs';
+import path from 'node:path';
 
 @Injectable()
 export class PostService {
     constructor(
         @InjectRepository(PostEntity)
         private readonly postRepository: Repository<PostEntity>,
-        @InjectRepository(PostImageEntity)
-        private readonly postImageRepository: Repository<PostImageEntity>,
         @InjectRepository(CategoryEntity)
         private readonly categoryRepository: Repository<CategoryEntity>,
         @InjectRepository(PageEntity)
         private readonly pageRepository: Repository<PageEntity>,
         @InjectRepository(SectionEntity)
         private readonly sectionRepository: Repository<SectionEntity>,
-        private readonly r2: R2Service,
+        private readonly mediaService: MediaService,
     ) {
     }
 
-    async create(user: UserEntity, dto: CreatePostDto, files?: UploadedFilePayload[]): Promise<PostEntity> {
+    async create(
+        user: UserEntity,
+        dto: CreatePostDto,
+        files?: { coverImage?: UploadedFilePayload; document?: UploadedFilePayload },
+    ): Promise<PostEntity> {
         const slug = this.generateSlug(dto.title.en);
 
         const exists = await this.postRepository.findOne({where: {slug}});
@@ -85,24 +89,50 @@ export class PostService {
             }
         }
 
+        const coverImageFile = files?.coverImage;
+        const documentFile = files?.document;
+
+        if (coverImageFile?.buffer) {
+            newPost.coverImage = await this.uploadCoverImage(coverImageFile);
+        } else if (dto.coverImage !== undefined) {
+            newPost.coverImage = this.normalizeOptionalString(dto.coverImage);
+        }
+
+        if (documentFile?.buffer) {
+            const media = await this.saveDocumentToMediaManager(documentFile);
+            newPost.document = media.url;
+            newPost.documentThumbnail = media.thumbnailUrl ?? null;
+        } else if (dto.document !== undefined) {
+            const normalized = this.normalizeOptionalString(dto.document);
+            newPost.document = normalized;
+            newPost.documentThumbnail = normalized ? await this.resolveDocumentThumbnail(normalized) : null;
+        }
+
+        if (dto.link !== undefined) {
+            newPost.link = this.normalizeOptionalString(dto.link);
+        }
+
         const savedPost = await this.postRepository.save(newPost);
         if (Array.isArray(savedPost)) {
             throw new HttpException('Unexpected save result', HttpStatus.INTERNAL_SERVER_ERROR);
         }
 
-        if (files?.length) {
-            await this.addImagesToPost(savedPost, files, 0);
-        }
-
         return this.findOne(savedPost.id);
     }
 
-    async findAll(): Promise<PostEntity[]> {
-        const posts = await this.postRepository.find({
+    async findAll(page = 1, pageSize = 10): Promise<{ items: PostEntity[]; total: number }> {
+        const take = Math.min(Math.max(Number(pageSize) || 10, 1), 50);
+        const current = Math.max(Number(page) || 1, 1);
+        const skip = (current - 1) * take;
+
+        const [items, total] = await this.postRepository.findAndCount({
             order: {createdAt: 'DESC'},
-            relations: ['author', 'category', 'page', 'images', 'sections', 'section'],
+            relations: ['author', 'category', 'page', 'sections', 'section'],
+            take,
+            skip,
         });
-        return posts.map((post) => this.sortPostImages(post));
+
+        return { items, total };
     }
 
     async findByCategory(categoryId: number): Promise<PostEntity[]> {
@@ -114,24 +144,28 @@ export class PostService {
         const posts = await this.postRepository.find({
             where: {category: {id: categoryId}},
             order: {createdAt: 'DESC'},
-            relations: ['author', 'category', 'page', 'images', 'sections', 'section'],
+            relations: ['author', 'category', 'page', 'sections', 'section'],
         });
 
-        return posts.map((post) => this.sortPostImages(post));
+        return posts;
     }
 
     async findOne(id: number): Promise<PostEntity> {
         const post = await this.postRepository.findOne({
             where: {id},
-            relations: ['author', 'category', 'page', 'images', 'sections', 'section'],
+            relations: ['author', 'category', 'page', 'sections', 'section'],
         });
         if (!post) {
             throw new HttpException('Post not found', HttpStatus.NOT_FOUND);
         }
-        return this.sortPostImages(post);
+        return post;
     }
 
-    async update(id: number, dto: UpdatePostDto, files?: UploadedFilePayload[]): Promise<PostEntity> {
+    async update(
+        id: number,
+        dto: UpdatePostDto,
+        files?: { coverImage?: UploadedFilePayload; document?: UploadedFilePayload },
+    ): Promise<PostEntity> {
         const post = await this.findOne(id);
 
         if (dto.title?.en && dto.title.en.trim() && dto.title.en !== post.title.en) {
@@ -209,132 +243,76 @@ export class PostService {
             }
         }
 
+        const coverImageFile = files?.coverImage;
+        const documentFile = files?.document;
+
+        const previousCoverImage = post.coverImage ?? null;
+        if (coverImageFile?.buffer) {
+            post.coverImage = await this.uploadCoverImage(coverImageFile);
+            if (previousCoverImage) {
+                this.removeLocalFile(previousCoverImage);
+            }
+        } else if (dto.coverImage !== undefined) {
+            const normalized = this.normalizeOptionalString(dto.coverImage);
+            post.coverImage = normalized;
+            if (previousCoverImage && previousCoverImage !== normalized) {
+                this.removeLocalFile(previousCoverImage);
+            }
+        }
+
+        if (documentFile?.buffer) {
+            const media = await this.saveDocumentToMediaManager(documentFile);
+            post.document = media.url;
+            post.documentThumbnail = media.thumbnailUrl ?? null;
+        } else if (dto.document !== undefined) {
+            const normalized = this.normalizeOptionalString(dto.document);
+            post.document = normalized;
+            post.documentThumbnail = normalized ? await this.resolveDocumentThumbnail(normalized) : null;
+        }
+
+        if (dto.link !== undefined) {
+            post.link = this.normalizeOptionalString(dto.link);
+        }
+
         await this.postRepository.save(post);
-
-        const replaceIds = dto.replaceImageIds ?? [];
-        const incomingFiles = files ?? [];
-        const replacementFiles = replaceIds.length ? incomingFiles.slice(0, replaceIds.length) : [];
-        const newFiles = replaceIds.length ? incomingFiles.slice(replaceIds.length) : incomingFiles;
-
-        if (replaceIds.length) {
-            if (!replacementFiles.length || replacementFiles.length !== replaceIds.length) {
-                throw new HttpException('replaceImageIds count must match uploaded files', HttpStatus.BAD_REQUEST);
-            }
-
-            const images = await this.postImageRepository.find({
-                where: {id: In(replaceIds), post: {id: post.id}},
-                order: {sortOrder: 'ASC', id: 'ASC'},
-            });
-
-            const imageMap = new Map(images.map((image) => [image.id, image]));
-            const urls = await this.uploadFiles(replacementFiles);
-
-            const updates: PostImageEntity[] = [];
-            replaceIds.forEach((imageId, index) => {
-                const target = imageMap.get(imageId);
-                if (!target) {
-                    throw new HttpException(`Image ${imageId} does not belong to this post`, HttpStatus.UNPROCESSABLE_ENTITY);
-                }
-                target.url = urls[index];
-                updates.push(target);
-            });
-
-            if (updates.length) {
-                await this.postImageRepository.save(updates);
-            }
-        }
-
-        if (dto.removeImageIds?.length) {
-            await this.postImageRepository.delete(dto.removeImageIds);
-        }
-
-        if (newFiles.length) {
-            const existingCount = await this.postImageRepository.count({where: {post: {id: post.id}}});
-            await this.addImagesToPost(post, newFiles, existingCount);
-        }
-
-        if (dto.removeImageIds?.length || newFiles.length) {
-            await this.reorderPostImages(post.id);
-        }
-
         return this.findOne(post.id);
     }
 
     async remove(id: number): Promise<void> {
         const post = await this.findOne(id);
+        const coverImageUrl = post.coverImage ?? null;
         await this.postRepository.remove(post);
-    }
-
-    async removeImage(postId: number, imageId: number): Promise<void> {
-        const post = await this.postRepository.findOne({where: {id: postId}});
-        if (!post) {
-            throw new HttpException('Post not found', HttpStatus.NOT_FOUND);
-        }
-
-        const image = await this.postImageRepository.findOne({where: {id: imageId, post: {id: postId}}});
-        if (!image) {
-            throw new HttpException('Image not found', HttpStatus.NOT_FOUND);
-        }
-
-        await this.postImageRepository.delete(image.id);
-        await this.reorderPostImages(postId);
-    }
-
-    private async addImagesToPost(post: PostEntity, files: UploadedFilePayload[], startOrder: number): Promise<void> {
-        const urls = await this.uploadFiles(files);
-        const imageEntities = urls.map((url, index) =>
-            this.postImageRepository.create({
-                url,
-                sortOrder: startOrder + index,
-                post,
-            }),
-        );
-
-        if (imageEntities.length) {
-            await this.postImageRepository.save(imageEntities);
+        if (coverImageUrl) {
+            this.removeLocalFile(coverImageUrl);
         }
     }
 
-    private async uploadFiles(files: UploadedFilePayload[]): Promise<string[]> {
-        return Promise.all(
-            files.map((file) => {
-                const key = this.generateObjectKey(file.originalname);
-                return this.r2.uploadObject({key, body: file.buffer, contentType: file.mimetype});
-            }),
-        );
-    }
+    private async uploadCoverImage(file: UploadedFilePayload): Promise<string> {
+        const key = this.generateObjectKey(file.originalname, 'posts');
+        const absolutePath = path.join(process.cwd(), key);
+        const directory = path.dirname(absolutePath);
 
-    private async reorderPostImages(postId: number): Promise<void> {
-        const images = await this.postImageRepository.find({
-            where: {post: {id: postId}},
-            order: {sortOrder: 'ASC', id: 'ASC'},
-        });
-
-        images.forEach((image, index) => {
-            image.sortOrder = index;
-        });
-
-        if (images.length) {
-            await this.postImageRepository.save(images);
-        }
-    }
-
-    private sortPostImages(post: PostEntity): PostEntity {
-        if (!post.images || post.images.length === 0) {
-            post.images = [];
-            return post;
+        if (!fs.existsSync(directory)) {
+            fs.mkdirSync(directory, {recursive: true});
         }
 
-        post.images = [...post.images].sort((a, b) => {
-            if (a.sortOrder === b.sortOrder) {
-                const aId = a.id ?? Number.MAX_SAFE_INTEGER;
-                const bId = b.id ?? Number.MAX_SAFE_INTEGER;
-                return aId - bId;
-            }
-            return a.sortOrder - b.sortOrder;
-        });
+        fs.writeFileSync(absolutePath, file.buffer);
+        return `/${key}`;
+    }
 
-        return post;
+    private async saveDocumentToMediaManager(file: UploadedFilePayload): Promise<MediaResponseInterface> {
+        const size = file.buffer?.length ?? 0;
+        const payload = {
+            ...(file as Express.Multer.File),
+            size,
+        } as Express.Multer.File;
+        return this.mediaService.saveFile(payload);
+    }
+
+    private async resolveDocumentThumbnail(url: string): Promise<string | null> {
+        const relativeUrl = this.toRelativePath(url);
+        const media = await this.mediaService.findByUrl(relativeUrl);
+        return media?.thumbnailUrl ?? null;
     }
 
     private async resolveSections(sectionIds: number[]): Promise<SectionEntity[]> {
@@ -346,11 +324,48 @@ export class PostService {
         return sections;
     }
 
-    private generateObjectKey(originalName: string): string {
+    private generateObjectKey(originalName: string, folder: string): string {
         const ext = originalName.includes('.') ? originalName.split('.').pop() : 'bin';
         const random = Math.random().toString(36).slice(2);
         const stamp = Date.now();
-        return `uploads/posts/${stamp}-${random}.${ext}`;
+        return `${this.getUploadRoot()}/${folder}/${stamp}-${random}.${ext}`;
+    }
+
+    private removeLocalFile(url?: string | null): void {
+        if (!url) {
+            return;
+        }
+
+        const relativePath = this.toRelativePath(url);
+        const uploadPrefix = `/${this.getUploadRoot()}/`;
+        if (!relativePath.startsWith(uploadPrefix)) {
+            return;
+        }
+
+        const absolutePath = path.join(process.cwd(), relativePath.replace(/^\/+/, ''));
+        if (fs.existsSync(absolutePath)) {
+            fs.unlinkSync(absolutePath);
+        }
+    }
+
+    private toRelativePath(url: string): string {
+        try {
+            return new URL(url).pathname;
+        } catch {
+            return url;
+        }
+    }
+
+    private getUploadRoot(): string {
+        return (process.env.LOCAL_UPLOAD_PATH || 'uploads').replace(/^\/+|\/+$/g, '');
+    }
+
+    private normalizeOptionalString(value: string | null | undefined): string | null {
+        if (value === null || value === undefined) {
+            return null;
+        }
+        const trimmed = value.trim();
+        return trimmed.length ? trimmed : null;
     }
 
     private generateSlug(title: string): string {

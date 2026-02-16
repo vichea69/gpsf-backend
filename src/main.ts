@@ -65,7 +65,8 @@ async function bootstrap() {
 	);
 	app.useGlobalInterceptors(new ResponseInterceptor());
 	app.useGlobalFilters(new AllExceptionsFilter());
-	app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
+	const uploadRoot = (process.env.LOCAL_UPLOAD_PATH || 'uploads').replace(/^\/+|\/+$/g, '');
+	app.use(`/${uploadRoot}`, express.static(join(process.cwd(), uploadRoot)));
 	await app.listen(process.env.PORT ?? 3000);
 }
 

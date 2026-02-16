@@ -10,7 +10,7 @@ import {MediaService} from "@/modules/media-manager/media.service";
     imports: [TypeOrmModule.forFeature([Media]), StorageModule,],
     controllers: [MediaController],
     providers: [MediaService],
-    exports: [],
+    exports: [MediaService],
 })
 export class MediaModule {
 

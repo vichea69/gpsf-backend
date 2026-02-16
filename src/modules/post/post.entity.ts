@@ -7,14 +7,12 @@ import {
     JoinTable,
     ManyToOne,
     ManyToMany,
-    OneToMany,
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from 'typeorm';
 import { UserEntity } from '@/modules/users/entities/user.entity';
 import { CategoryEntity } from '@/modules/category/category.entity';
 import { PageEntity } from '@/modules/page/page.entity';
-import { PostImageEntity } from '@/modules/post/post-image.entity';
 import { SectionEntity } from '@/modules/section/section.entity';
 
 export enum PostStatus {
@@ -45,12 +43,17 @@ export class PostEntity {
     @Column({ type: 'enum', enum: PostStatus, default: PostStatus.Draft })
     status: PostStatus;
 
-    @OneToMany(() => PostImageEntity, (image) => image.post, {
-        cascade: true,
-        eager: false,
-        orphanedRowAction: 'delete',
-    })
-    images?: PostImageEntity[];
+    @Column({ type: 'varchar', length: 500, nullable: true })
+    coverImage?: string | null;
+
+    @Column({ type: 'varchar', length: 500, nullable: true })
+    document?: string | null;
+
+    @Column({ type: 'varchar', length: 600, nullable: true })
+    documentThumbnail?: string | null;
+
+    @Column({ type: 'varchar', length: 500, nullable: true })
+    link?: string | null;
     @ManyToOne(() => UserEntity, { nullable: true, onDelete: 'SET NULL' })
     author?: UserEntity | null;
 

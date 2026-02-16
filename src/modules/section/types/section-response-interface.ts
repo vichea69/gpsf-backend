@@ -20,12 +20,6 @@ export interface SectionBlock {
     posts?: SectionBlockPost[];
 }
 
-export interface SectionBlockPostImage {
-    id: number;
-    url: string;
-    sortOrder: number;
-}
-
 export interface SectionBlockPostAuthor {
     id: number;
     displayName: string;
@@ -50,7 +44,10 @@ export interface SectionBlockPost {
     description?: LocalizedText | null;
     content: Record<string, unknown> | null;
     status: string;
-    images: SectionBlockPostImage[];
+    coverImage?: string | null;
+    document?: string | null;
+    documentThumbnail?: string | null;
+    link?: string | null;
     createdAt: Date;
     updatedAt: Date;
     author: SectionBlockPostAuthor | null;

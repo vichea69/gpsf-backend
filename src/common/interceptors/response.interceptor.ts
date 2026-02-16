@@ -7,10 +7,59 @@ type AnyObject = Record<string, any>;
 const API_VERSION = 'v1';
 const ACCESS_TOKEN_EXPIRES_IN = 900; // 15 minutes
 const REFRESH_TOKEN_EXPIRES_IN = 604800; // 7 days
+const TIMEZONE = process.env.TIMEZONE || 'Asia/Phnom_Penh';
+
+function getPart(parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTypes): string {
+    return parts.find((part) => part.type === type)?.value ?? '';
+}
+
+function getTimezoneOffset(date: Date, timeZone: string): string {
+    const offsetParts = new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        timeZoneName: 'shortOffset',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    }).formatToParts(date);
+
+    const rawOffset = getPart(offsetParts, 'timeZoneName'); // Example: GMT+7
+    const match = rawOffset.match(/^GMT([+-])(\d{1,2})(?::?(\d{2}))?$/);
+    if (!match) {
+        return '+00:00';
+    }
+
+    const sign = match[1];
+    const hour = match[2].padStart(2, '0');
+    const minute = (match[3] ?? '00').padStart(2, '0');
+    return `${sign}${hour}:${minute}`;
+}
+
+function toTimezoneIso(date: Date, timeZone: string): string {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+    }).formatToParts(date);
+
+    const year = getPart(parts, 'year');
+    const month = getPart(parts, 'month');
+    const day = getPart(parts, 'day');
+    const hour = getPart(parts, 'hour');
+    const minute = getPart(parts, 'minute');
+    const second = getPart(parts, 'second');
+    const offset = getTimezoneOffset(date, timeZone);
+
+    return `${year}-${month}-${day}T${hour}:${minute}:${second}${offset}`;
+}
 
 function redactPasswords(input: any): any {
-    // Format Date objects as YYYY-MM-DD (UTC)
-    if (input instanceof Date) return input.toISOString().slice(0, 10);
+    // Format Date objects in project timezone (default Asia/Phnom_Penh)
+    if (input instanceof Date) return toTimezoneIso(input, TIMEZONE);
     if (Array.isArray(input)) return input.map(redactPasswords);
     if (input && typeof input === 'object') {
         const clone: AnyObject = {};
@@ -120,7 +169,7 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, AnyObject> {
                     message: defaultMessage(path, method, data),
                     data,
                     ...(meta ? {meta} : {}),
-                    timestamp: new Date().toISOString(),
+                    timestamp: toTimezoneIso(new Date(), TIMEZONE),
                     version: API_VERSION,
                 };
 

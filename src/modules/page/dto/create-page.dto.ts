@@ -19,7 +19,7 @@ export class LocalizedMetaTitleDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
-  @MinLength(2)
+  @MinLength(1)
   en: string;
 
   @IsOptional()
@@ -32,7 +32,7 @@ export class LocalizedMetaDescriptionDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(500)
-  @MinLength(2)
+  @MinLength(1)
   en: string;
 
   @IsOptional()

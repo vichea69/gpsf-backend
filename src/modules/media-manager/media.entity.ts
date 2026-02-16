@@ -25,6 +25,10 @@ export class Media {
     @Column()
     url: string;
 
+    // Optional generated preview for PDF files
+    @Column({ type: 'varchar', length: 600, nullable: true })
+    thumbnailUrl?: string | null;
+
     // image | video | pdf | file
     @Column()
     mediaType: string;

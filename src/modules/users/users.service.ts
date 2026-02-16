@@ -191,7 +191,7 @@ export class UsersService {
         type: 'access',
       },
       process.env.JWT_SECRET as string,
-      { expiresIn: '7d' },
+      { expiresIn: '15m' },
     );
   }
 

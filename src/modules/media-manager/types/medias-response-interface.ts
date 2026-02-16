@@ -2,6 +2,10 @@
 import {MediaResponseInterface} from "@/modules/media-manager/types/media-response-interface";
 
 export interface MediasResponseInterface {
-    items: MediaResponseInterface[];
+    success?: boolean;
+    message?: string;
+    page: number;
+    pageSize: number;
     total: number;
+    data: MediaResponseInterface[];
 }

@@ -17,6 +17,7 @@ import {MediaModule} from "@/modules/media-manager/media.module";
 import { SectionModule } from './modules/section/section.module';
 import { TestimonialModule } from '@/modules/testimonial/testimonial.module';
 import { WorkingGroupModule } from '@/modules/working-group/working-group.module';
+import { ContactMessageModule } from '@/modules/contact-message/contact-message.module';
 
 
 @Module({
@@ -38,6 +39,7 @@ import { WorkingGroupModule } from '@/modules/working-group/working-group.module
         SectionModule,
         TestimonialModule,
         WorkingGroupModule,
+        ContactMessageModule,
     ],
     controllers: [AppController],
     providers: [AppService],

@@ -50,7 +50,7 @@ export class SectionService {
 
                 const posts = await this.postRepository.find({
                     where,
-                    relations: ["author", "category", "page", "images"],
+                    relations: ["author", "category", "page"],
                     order: { createdAt: "DESC" },
                 });
 
@@ -82,7 +82,7 @@ export class SectionService {
                     : { sectionId: In(sectionIds), status: PostStatus.Published };
                 const posts = await this.postRepository.find({
                     where,
-                    relations: ["author", "category", "page", "images"],
+                    relations: ["author", "category", "page"],
                     order: { createdAt: "DESC" },
                 });
 
@@ -235,15 +235,6 @@ export class SectionService {
     }
 
     private toPostBlock(post: PostEntity): SectionBlockPost {
-        const images = [...(post.images ?? [])].sort((a, b) => {
-            if (a.sortOrder === b.sortOrder) {
-                const aId = a.id ?? Number.MAX_SAFE_INTEGER;
-                const bId = b.id ?? Number.MAX_SAFE_INTEGER;
-                return aId - bId;
-            }
-            return a.sortOrder - b.sortOrder;
-        });
-
         return {
             id: post.id,
             title: post.title,
@@ -251,11 +242,10 @@ export class SectionService {
             description: post.description ?? null,
             content: post.content ?? null,
             status: post.status,
-            images: images.map((image) => ({
-                id: image.id,
-                url: image.url,
-                sortOrder: image.sortOrder,
-            })),
+            coverImage: post.coverImage ?? null,
+            document: post.document ?? null,
+            documentThumbnail: post.documentThumbnail ?? null,
+            link: post.link ?? null,
             createdAt: post.createdAt,
             updatedAt: post.updatedAt,
             author: post.author

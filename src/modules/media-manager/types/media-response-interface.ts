@@ -6,6 +6,7 @@ export interface MediaResponseInterface {
     mimeType: string;
     size: number;
     url: string;
+    thumbnailUrl?: string | null;
     mediaType: string;
     createdAt: Date;
 }

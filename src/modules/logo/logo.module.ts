@@ -3,13 +3,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { LogoEntity } from '@/modules/logo/logo.entity';
 import { LogoService } from '@/modules/logo/logo.service';
 import { LogoController } from '@/modules/logo/logo.controller';
-import { S3Service } from '@/modules/logo/s3.service';
 import { RoleModule } from '@/modules/roles/role.module';
 
 @Module({
   imports: [TypeOrmModule.forFeature([LogoEntity]), RoleModule],
   controllers: [LogoController],
-  providers: [LogoService, S3Service],
+  providers: [LogoService],
   exports: [LogoService],
 })
 export class LogoModule {}

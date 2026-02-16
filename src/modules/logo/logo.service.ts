@@ -1,30 +1,29 @@
-import { HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { LogoEntity } from '@/modules/logo/logo.entity';
 import { UpdateLogoDto } from '@/modules/logo/dto/update-logo.dto';
 import { UploadLogoDto } from '@/modules/logo/dto/upload-logo.dto';
-import { S3Service } from '@/modules/logo/s3.service';
 
 @Injectable()
 export class LogoService {
   constructor(
     @InjectRepository(LogoEntity)
     private readonly logoRepository: Repository<LogoEntity>,
-    private readonly s3: S3Service,
   ) {}
 
   async getCurrent(): Promise<LogoEntity> {
     const [logo] = await this.logoRepository.find({ order: { createdAt: 'DESC' }, take: 1 });
     if (!logo) {
-      throw new HttpException('Logo not found', HttpStatus.NOT_FOUND);
+      throw new NotFoundException('Logo not found');
     }
     return logo;
   }
+
   async findAll(): Promise<LogoEntity[]> {
-    // Ensure stable ordering by id (ascending)
     return await this.logoRepository.find({ order: { id: 'ASC' } });
   }
+
   async getCurrentOrNull(): Promise<LogoEntity | null> {
     const [logo] = await this.logoRepository.find({ order: { createdAt: 'DESC' }, take: 1 });
     return logo ?? null;
@@ -36,22 +35,24 @@ export class LogoService {
     return logo;
   }
 
-  async updateById(id: number, dto: UpdateLogoDto, file?: any): Promise<LogoEntity> {
+  async create(dto: UploadLogoDto): Promise<LogoEntity> {
+    const logo = this.logoRepository.create({
+      url: this.toRelativePath(dto.url),
+      title: dto.title ?? null,
+      description: dto.description,
+      link: dto.link,
+    });
+    return await this.logoRepository.save(logo);
+  }
+
+  async updateById(id: number, dto: UpdateLogoDto): Promise<LogoEntity> {
     const logo = await this.findById(id);
 
-    // If a new file is provided, upload and replace URL
-    if (file && file.buffer) {
-      const key = this.generateObjectKey(file.originalname);
-      const url = await this.s3.uploadObject({ key, body: file.buffer, contentType: file.mimetype });
-      logo.url = url;
-    } else if (dto.url !== undefined) {
-      // Otherwise allow direct URL update from DTO
-      logo.url = dto.url;
-    }
-
+    if (dto.url !== undefined) logo.url = this.toRelativePath(dto.url);
     if (dto.title !== undefined) logo.title = dto.title ?? null;
     if (dto.description !== undefined) logo.description = dto.description;
     if (dto.link !== undefined) logo.link = dto.link;
+
     return await this.logoRepository.save(logo);
   }
 
@@ -60,40 +61,14 @@ export class LogoService {
     await this.logoRepository.remove(logo);
   }
 
-  async update(dto: UpdateLogoDto): Promise<LogoEntity> {
-    const current = await this.getCurrent();
-    if (dto.url !== undefined) current.url = dto.url;
-    if (dto.title !== undefined) current.title = dto.title ?? null;
-    if (dto.description !== undefined) current.description = dto.description;
-    if (dto.link !== undefined) current.link = dto.link;
-    return await this.logoRepository.save(current);
-  }
-
-  async remove(): Promise<void> {
-    const current = await this.getCurrentOrNull();
-    if (!current) return;
-    await this.logoRepository.remove(current);
-  }
-
-  async upload(file: any, dto: UploadLogoDto): Promise<LogoEntity> {
-    if (!file || !file.buffer) {
-      throw new HttpException('Logo file is required', HttpStatus.BAD_REQUEST);
+  // Strip host from full URLs so we always store relative paths
+  // e.g. "http://localhost:3001/uploads/img.png" → "/uploads/img.png"
+  private toRelativePath(url: string): string {
+    try {
+      const parsed = new URL(url);
+      return parsed.pathname;
+    } catch {
+      return url;
     }
-    const key = this.generateObjectKey(file.originalname);
-    const url = await this.s3.uploadObject({ key, body: file.buffer, contentType: file.mimetype });
-    const logo = this.logoRepository.create({
-      url,
-      title: dto.title ?? null,
-      description: dto.description,
-      link: dto.link,
-    });
-    return await this.logoRepository.save(logo);
-  }
-
-  private generateObjectKey(originalName: string): string {
-    const ext = originalName && originalName.includes('.') ? originalName.split('.').pop() : 'bin';
-    const random = Math.random().toString(36).slice(2);
-    const stamp = Date.now();
-    return `uploads/logo/${stamp}-${random}.${ext}`;
   }
 }

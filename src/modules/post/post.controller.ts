@@ -3,19 +3,18 @@ import {
   Controller,
   Delete,
   Get,
-  HttpCode,
-  HttpStatus,
   Param,
   ParseIntPipe,
   Post,
   Put,
+  Query,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { FilesInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { PostService } from '@/modules/post/post.service';
 import { CreatePostDto } from '@/modules/post/dto/create-post.dto';
@@ -35,8 +34,19 @@ export class PostController {
   constructor(private readonly postService: PostService) {}
 
   @Get()
-  findAll() {
-    return this.postService.findAll().then((items) => items.map((post) => this.toPostResponse(post)));
+  async findAll(@Query('page') page?: number, @Query('pageSize') pageSize?: number) {
+    const current = Math.max(Number(page) || 1, 1);
+    const size = Math.min(Math.max(Number(pageSize) || 10, 1), 50);
+    const { items, total } = await this.postService.findAll(current, size);
+    const data = items.map((post) => this.toPostResponse(post));
+    return {
+      success: true,
+      message: 'OK',
+      page: current,
+      pageSize: size,
+      total,
+      data,
+    };
   }
 
   @Get('category/:categoryId')
@@ -56,17 +66,29 @@ export class PostController {
   @Permissions({ resource: Resource.Posts, actions: [Action.Create] })
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
   @UseInterceptors(
-    FilesInterceptor('images', 10, {
+    FileFieldsInterceptor(
+      [
+        { name: 'coverImage', maxCount: 1 },
+        { name: 'document', maxCount: 1 },
+      ],
+      {
       storage: memoryStorage(),
       limits: { fileSize: 10 * 1024 * 1024 }, // 10MB per file
-    }),
+      },
+    ),
   )
   create(
     @User() user: UserEntity,
     @Body() dto: CreatePostDto,
-    @UploadedFiles() files?: UploadedFilePayload[],
+    @UploadedFiles()
+    files?: {
+      coverImage?: UploadedFilePayload[];
+      document?: UploadedFilePayload[];
+    },
   ) {
-    return this.postService.create(user, dto, files).then((post) => this.toPostResponse(post));
+    const coverImage = files?.coverImage?.[0];
+    const document = files?.document?.[0];
+    return this.postService.create(user, dto, { coverImage, document }).then((post) => this.toPostResponse(post));
   }
 
   @Put(':id')
@@ -74,29 +96,29 @@ export class PostController {
   @Permissions({ resource: Resource.Posts, actions: [Action.Update] })
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
   @UseInterceptors(
-    FilesInterceptor('images', 10, {
+    FileFieldsInterceptor(
+      [
+        { name: 'coverImage', maxCount: 1 },
+        { name: 'document', maxCount: 1 },
+      ],
+      {
       storage: memoryStorage(),
       limits: { fileSize: 10 * 1024 * 1024 },
-    }),
+      },
+    ),
   )
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdatePostDto,
-    @UploadedFiles() files?: UploadedFilePayload[],
+    @UploadedFiles()
+    files?: {
+      coverImage?: UploadedFilePayload[];
+      document?: UploadedFilePayload[];
+    },
   ) {
-    return this.postService.update(id, dto, files).then((post) => this.toPostResponse(post));
-  }
-
-  @Delete(':postId/images/:imageId')
-  @UseGuards(AuthGuard, PermissionsGuard)
-  @Permissions({ resource: Resource.Posts, actions: [Action.Delete] })
-  @HttpCode(HttpStatus.OK)
-  async removeImage(
-    @Param('postId', ParseIntPipe) postId: number,
-    @Param('imageId', ParseIntPipe) imageId: number,
-  ) {
-    await this.postService.removeImage(postId, imageId);
-    return { message: 'Image deleted successfully' };
+    const coverImage = files?.coverImage?.[0];
+    const document = files?.document?.[0];
+    return this.postService.update(id, dto, { coverImage, document }).then((post) => this.toPostResponse(post));
   }
 
   @Delete(':id')
@@ -114,12 +136,10 @@ export class PostController {
       slug: post.slug,
       content: post.content,
       status: post.status,
-      images:
-        post.images?.map((image) => ({
-          id: image.id,
-          url: image.url,
-          sortOrder: image.sortOrder,
-        })) ?? [],
+      coverImage: post.coverImage ?? null,
+      document: post.document ?? null,
+      documentThumbnail: post.documentThumbnail ?? null,
+      link: post.link ?? null,
       createdAt: post.createdAt,
       updatedAt: post.updatedAt,
       author: post.author

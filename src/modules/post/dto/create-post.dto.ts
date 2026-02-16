@@ -1,16 +1,28 @@
-import {IsArray, IsDefined, IsEnum, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Max, MaxLength, Min, ValidateNested} from 'class-validator';
+import {IsArray, IsDefined, IsEnum, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Max, MaxLength, Min, ValidateIf, ValidateNested} from 'class-validator';
 import {PostStatus} from '@/modules/post/post.entity';
 import {plainToInstance, Transform, Type} from 'class-transformer';
 
 export class LocalizedTitleDto {
     @IsString()
     @IsNotEmpty()
-    @MaxLength(200)
+    @MaxLength(300)
     en: string;
 
     @IsOptional()
     @IsString()
-    @MaxLength(200)
+    @MaxLength(300)
+    km?: string;
+}
+
+export class LocalizedDescriptionDto {
+    @IsString()
+    @IsNotEmpty()
+    @MaxLength(500)
+    en: string;
+
+    @IsOptional()
+    @IsString()
+    @MaxLength(500)
     km?: string;
 }
 
@@ -87,11 +99,11 @@ export class CreatePostDto {
                 }
             })()
             : value;
-        return plainToInstance(LocalizedTitleDto, parsed);
+        return plainToInstance(LocalizedDescriptionDto, parsed);
     })
     @ValidateNested()
-    @Type(() => LocalizedTitleDto)
-    description?: LocalizedTitleDto;
+    @Type(() => LocalizedDescriptionDto)
+    description?: LocalizedDescriptionDto;
 
     // Optional relations
     @IsOptional()
@@ -138,4 +150,25 @@ export class CreatePostDto {
     @IsOptional()
     @IsEnum(PostStatus)
     status?: PostStatus;
+
+    @IsOptional()
+    @Transform(({value}) => (value === '' ? null : value))
+    @ValidateIf((_, value) => value !== null)
+    @IsString()
+    @MaxLength(500)
+    coverImage?: string | null;
+
+    @IsOptional()
+    @Transform(({value}) => (value === '' ? null : value))
+    @ValidateIf((_, value) => value !== null)
+    @IsString()
+    @MaxLength(500)
+    document?: string | null;
+
+    @IsOptional()
+    @Transform(({value}) => (value === '' ? null : value))
+    @ValidateIf((_, value) => value !== null)
+    @IsString()
+    @MaxLength(500)
+    link?: string | null;
 }

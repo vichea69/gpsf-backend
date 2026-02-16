@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -25,6 +26,32 @@ import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { UploadedFilePayload } from '@/types/uploaded-file.type';
 
+const SITE_LOGO_FIELDS: Array<{ name: string; maxCount: number }> = [
+  { name: 'logo', maxCount: 1 },
+  { name: 'siteLogo', maxCount: 1 },
+  { name: 'SiteLogo', maxCount: 1 },
+];
+
+const ALLOWED_LOGO_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/svg+xml',
+  'image/gif',
+]);
+
+const SITE_LOGO_UPLOAD_OPTIONS = {
+  storage: memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req: unknown, file: Express.Multer.File, cb: (error: Error | null, acceptFile: boolean) => void) => {
+    if (ALLOWED_LOGO_MIME_TYPES.has(file.mimetype)) {
+      cb(null, true);
+      return;
+    }
+    cb(new BadRequestException(`Unsupported logo file type: ${file.mimetype}`), false);
+  },
+};
+
 @Controller('site-settings')
 export class SiteSettingController {
   constructor(private readonly siteSettingService: SiteSettingService) {}
@@ -32,6 +59,16 @@ export class SiteSettingController {
   @Get()
   findAll() {
     return this.siteSettingService.findAll();
+  }
+
+  @Get('current')
+  findCurrent() {
+    return this.siteSettingService.findCurrent();
+  }
+
+  @Get('current/contact-panel')
+  findCurrentContactPanel() {
+    return this.siteSettingService.findCurrentContactPanel();
   }
 
   @Get(':id')
@@ -45,15 +82,8 @@ export class SiteSettingController {
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
   @UseInterceptors(
     FileFieldsInterceptor(
-      [
-        { name: 'logo', maxCount: 1 },
-        { name: 'siteLogo', maxCount: 1 },
-        { name: 'SiteLogo', maxCount: 1 },
-      ],
-      {
-      storage: memoryStorage(),
-      limits: { fileSize: 5 * 1024 * 1024 },
-      },
+      SITE_LOGO_FIELDS,
+      SITE_LOGO_UPLOAD_OPTIONS,
     ),
   )
   create(
@@ -65,21 +95,33 @@ export class SiteSettingController {
     return this.siteSettingService.create(dto, file);
   }
 
+  @Put('current')
+  @UseGuards(AuthGuard, PermissionsGuard)
+  @Permissions({ resource: Resource.SiteSettings, actions: [Action.Update] })
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      SITE_LOGO_FIELDS,
+      SITE_LOGO_UPLOAD_OPTIONS,
+    ),
+  )
+  updateCurrent(
+    @Body() dto: UpdateSiteSettingDto,
+    @UploadedFiles()
+    files: Partial<Record<'logo' | 'siteLogo' | 'SiteLogo', UploadedFilePayload[]>>,
+  ) {
+    const file = this.pickFile(files);
+    return this.siteSettingService.upsertCurrent(dto, file);
+  }
+
   @Put(':id')
   @UseGuards(AuthGuard, PermissionsGuard)
   @Permissions({ resource: Resource.SiteSettings, actions: [Action.Update] })
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
   @UseInterceptors(
     FileFieldsInterceptor(
-      [
-        { name: 'logo', maxCount: 1 },
-        { name: 'siteLogo', maxCount: 1 },
-        { name: 'SiteLogo', maxCount: 1 },
-      ],
-      {
-      storage: memoryStorage(),
-      limits: { fileSize: 5 * 1024 * 1024 },
-      },
+      SITE_LOGO_FIELDS,
+      SITE_LOGO_UPLOAD_OPTIONS,
     ),
   )
   update(

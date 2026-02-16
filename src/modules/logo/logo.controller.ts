@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, UploadedFile, UseGuards, UseInterceptors, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
 import { LogoService } from '@/modules/logo/logo.service';
 import { UpdateLogoDto } from '@/modules/logo/dto/update-logo.dto';
 import { AuthGuard } from '@/modules/auth/guards/auth.guard';
@@ -8,8 +8,6 @@ import { Resource } from '@/modules/roles/enums/resource.enum';
 import { Action } from '@/modules/roles/enums/actions.enum';
 import { LogoResponseInterface } from '@/modules/logo/types/logoResponse.interface';
 import { LogosResponseInterface } from '@/modules/logo/types/logosResponse.interface';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
 import { UploadLogoDto } from '@/modules/logo/dto/upload-logo.dto';
 
 @Controller('logo')
@@ -32,14 +30,8 @@ export class LogoController {
   @UseGuards(AuthGuard, PermissionsGuard)
   @Permissions({ resource: Resource.Logo, actions: [Action.Create] })
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
-  @UseInterceptors(
-    FileInterceptor('logo', {
-      storage: memoryStorage(),
-      limits: { fileSize: 5 * 1024 * 1024 },
-    }),
-  )
-  async upload(@UploadedFile() file: any, @Body() dto: UploadLogoDto): Promise<LogoResponseInterface> {
-    const logo = await this.logoService.upload(file, dto);
+  async create(@Body() dto: UploadLogoDto): Promise<LogoResponseInterface> {
+    const logo = await this.logoService.create(dto);
     return { logo };
   }
 
@@ -47,18 +39,11 @@ export class LogoController {
   @UseGuards(AuthGuard, PermissionsGuard)
   @Permissions({ resource: Resource.Logo, actions: [Action.Update] })
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
-  @UseInterceptors(
-    FileInterceptor('logo', {
-      storage: memoryStorage(),
-      limits: { fileSize: 5 * 1024 * 1024 },
-    }),
-  )
   async update(
     @Param('id') id: string,
-    @UploadedFile() file: any,
     @Body() dto: UpdateLogoDto,
   ): Promise<LogoResponseInterface> {
-    const logo = await this.logoService.updateById(Number(id), dto, file);
+    const logo = await this.logoService.updateById(Number(id), dto);
     return { logo };
   }
 
