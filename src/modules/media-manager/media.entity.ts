@@ -1,4 +1,5 @@
-import {Column, CreateDateColumn, Entity, PrimaryGeneratedColumn,} from 'typeorm';
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { MediaFolder } from '@/modules/media-manager/media-folder.entity';
 
 @Entity('media')
 export class Media {
@@ -36,6 +37,14 @@ export class Media {
     // local | s3 | r2 (future-proof)
     @Column({default: 'local'})
     storageDriver: string;
+
+    // null means file is in root (no folder)
+    @Column({ type: 'int', nullable: true })
+    folderId?: number | null;
+
+    @ManyToOne(() => MediaFolder, (folder) => folder.files, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'folderId' })
+    folder?: MediaFolder | null;
 
     @CreateDateColumn()
     createdAt: Date;

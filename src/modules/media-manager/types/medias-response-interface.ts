@@ -1,5 +1,6 @@
 //Multiple Media Response
 import {MediaResponseInterface} from "@/modules/media-manager/types/media-response-interface";
+import { MediaFolder } from '@/modules/media-manager/media-folder.entity';
 
 export interface MediasResponseInterface {
     success?: boolean;
@@ -8,4 +9,5 @@ export interface MediasResponseInterface {
     pageSize: number;
     total: number;
     data: MediaResponseInterface[];
+    folders?: MediaFolder[];
 }

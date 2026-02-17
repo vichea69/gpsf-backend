@@ -1,4 +1,9 @@
 //Single Response Media
+export interface MediaFolderResponseInterface {
+    id: number;
+    name: string;
+}
+
 export interface MediaResponseInterface {
     id: number;
     filename: string;
@@ -8,5 +13,8 @@ export interface MediaResponseInterface {
     url: string;
     thumbnailUrl?: string | null;
     mediaType: string;
+    storageDriver?: string;
+    folderId?: number | null;
+    folder?: MediaFolderResponseInterface | null;
     createdAt: Date;
 }
