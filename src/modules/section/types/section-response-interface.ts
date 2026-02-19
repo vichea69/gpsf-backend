@@ -7,6 +7,16 @@ export interface LocalizedText {
     km?: string;
 }
 
+export interface PostLocalizedText {
+    en?: string;
+    km?: string;
+}
+
+export interface LocalizedDocumentFile {
+    url: string;
+    thumbnailUrl?: string | null;
+}
+
 export interface SectionBlock {
     id: number;
     type: SectionBlockType;
@@ -39,14 +49,18 @@ export interface SectionBlockPostPage {
 
 export interface SectionBlockPost {
     id: number;
-    title: LocalizedText;
+    title: PostLocalizedText;
     slug: string | null;
-    description?: LocalizedText | null;
+    description?: PostLocalizedText | null;
     content: Record<string, unknown> | null;
     status: string;
     coverImage?: string | null;
     document?: string | null;
     documentThumbnail?: string | null;
+    documents?: {
+        en?: LocalizedDocumentFile | null;
+        km?: LocalizedDocumentFile | null;
+    } | null;
     link?: string | null;
     createdAt: Date;
     updatedAt: Date;

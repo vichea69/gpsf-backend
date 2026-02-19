@@ -1,4 +1,4 @@
-import {IsArray, IsDefined, IsEnum, IsInt, IsObject, IsOptional, IsString, Max, MaxLength, Min, ValidateIf, ValidateNested} from 'class-validator';
+import {IsArray, IsBoolean, IsDateString, IsEnum, IsInt, IsObject, IsOptional, IsString, Max, MaxLength, Min, ValidateIf, ValidateNested} from 'class-validator';
 import {PostStatus} from '@/modules/post/post.entity';
 import {plainToInstance, Transform, Type} from 'class-transformer';
 
@@ -27,13 +27,41 @@ export class LocalizedDescriptionUpdateDto {
 }
 
 export class LocalizedContentDto {
-    @IsDefined()
+    @IsOptional()
     @IsObject()
-    en: Record<string, unknown>;
+    en?: Record<string, unknown>;
 
     @IsOptional()
     @IsObject()
     km?: Record<string, unknown>;
+}
+
+export class LocalizedDocumentItemUpdateDto {
+    @IsOptional()
+    @Transform(({value}) => (value === '' ? null : value))
+    @ValidateIf((_, value) => value !== null)
+    @IsString()
+    @MaxLength(500)
+    url?: string | null;
+
+    @IsOptional()
+    @Transform(({value}) => (value === '' ? null : value))
+    @ValidateIf((_, value) => value !== null)
+    @IsString()
+    @MaxLength(600)
+    thumbnailUrl?: string | null;
+}
+
+export class LocalizedDocumentsUpdateDto {
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => LocalizedDocumentItemUpdateDto)
+    en?: LocalizedDocumentItemUpdateDto | null;
+
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => LocalizedDocumentItemUpdateDto)
+    km?: LocalizedDocumentItemUpdateDto | null;
 }
 
 export class UpdatePostDto {
@@ -134,6 +162,58 @@ export class UpdatePostDto {
     status?: PostStatus;
 
     @IsOptional()
+    @Transform(({ value }) => {
+        if (value === undefined || value === null || value === '') {
+            return undefined;
+        }
+        if (typeof value === 'boolean') {
+            return value;
+        }
+        const normalized = String(value).trim().toLowerCase();
+        if (normalized === 'true' || normalized === '1') {
+            return true;
+        }
+        if (normalized === 'false' || normalized === '0') {
+            return false;
+        }
+        return value;
+    })
+    @IsBoolean()
+    isPublished?: boolean;
+
+    @IsOptional()
+    @Transform(({ value }) => (value === '' ? null : value))
+    @ValidateIf((_, value) => value !== null)
+    @IsDateString()
+    publishedAt?: string | null;
+
+    @IsOptional()
+    @Transform(({ value }) => {
+        if (value === undefined || value === null || value === '') {
+            return undefined;
+        }
+        if (typeof value === 'boolean') {
+            return value;
+        }
+        const normalized = String(value).trim().toLowerCase();
+        if (normalized === 'true' || normalized === '1') {
+            return true;
+        }
+        if (normalized === 'false' || normalized === '0') {
+            return false;
+        }
+        return value;
+    })
+    @IsBoolean()
+    isFeatured?: boolean;
+
+    @IsOptional()
+    @Transform(({ value }) => (value === '' ? null : value))
+    @ValidateIf((_, value) => value !== null)
+    @IsDateString()
+    expiredAt?: string | null;
+
+    @IsOptional()
     @Transform(({value}) => (value === '' ? null : value))
     @ValidateIf((_, value) => value !== null)
     @IsString()
@@ -146,6 +226,42 @@ export class UpdatePostDto {
     @IsString()
     @MaxLength(500)
     document?: string | null;
+
+    @IsOptional()
+    @Transform(({value}) => (value === '' ? null : value))
+    @ValidateIf((_, value) => value !== null)
+    @IsString()
+    @MaxLength(500)
+    documentEn?: string | null;
+
+    @IsOptional()
+    @Transform(({value}) => (value === '' ? null : value))
+    @ValidateIf((_, value) => value !== null)
+    @IsString()
+    @MaxLength(500)
+    documentKm?: string | null;
+
+    @IsOptional()
+    @Transform(({value}) => {
+        if (value === undefined || value === '') {
+            return undefined;
+        }
+        if (value === null) {
+            return null;
+        }
+        if (typeof value === 'string') {
+            try {
+                const parsed = JSON.parse(value);
+                return plainToInstance(LocalizedDocumentsUpdateDto, parsed);
+            } catch {
+                return value;
+            }
+        }
+        return plainToInstance(LocalizedDocumentsUpdateDto, value);
+    })
+    @ValidateNested()
+    @Type(() => LocalizedDocumentsUpdateDto)
+    documents?: LocalizedDocumentsUpdateDto | null;
 
     @IsOptional()
     @Transform(({value}) => (value === '' ? null : value))

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -34,10 +35,15 @@ export class PostController {
   constructor(private readonly postService: PostService) {}
 
   @Get()
-  async findAll(@Query('page') page?: number, @Query('pageSize') pageSize?: number) {
+  async findAll(
+    @Query('page') page?: number,
+    @Query('pageSize') pageSize?: number,
+    @Query('isFeatured') isFeatured?: string,
+  ) {
     const current = Math.max(Number(page) || 1, 1);
-    const size = Math.min(Math.max(Number(pageSize) || 10, 1), 50);
-    const { items, total } = await this.postService.findAll(current, size);
+    const size = Math.min(Math.max(Number(pageSize) || 20, 1), 50);
+    const featuredFilter = this.parseBooleanQuery(isFeatured, 'isFeatured');
+    const { items, total } = await this.postService.findAll(current, size, featuredFilter);
     const data = items.map((post) => this.toPostResponse(post));
     return {
       success: true,
@@ -56,6 +62,11 @@ export class PostController {
       .then((items) => items.map((post) => this.toPostResponse(post)));
   }
 
+  @Get('slug/:slug')
+  findOneBySlug(@Param('slug') slug: string) {
+    return this.postService.findOneBySlug(slug).then((post) => this.toPostResponse(post));
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.postService.findOne(id).then((post) => this.toPostResponse(post));
@@ -70,6 +81,8 @@ export class PostController {
       [
         { name: 'coverImage', maxCount: 1 },
         { name: 'document', maxCount: 1 },
+        { name: 'documentEn', maxCount: 1 },
+        { name: 'documentKm', maxCount: 1 },
       ],
       {
       storage: memoryStorage(),
@@ -84,11 +97,17 @@ export class PostController {
     files?: {
       coverImage?: UploadedFilePayload[];
       document?: UploadedFilePayload[];
+      documentEn?: UploadedFilePayload[];
+      documentKm?: UploadedFilePayload[];
     },
   ) {
     const coverImage = files?.coverImage?.[0];
     const document = files?.document?.[0];
-    return this.postService.create(user, dto, { coverImage, document }).then((post) => this.toPostResponse(post));
+    const documentEn = files?.documentEn?.[0];
+    const documentKm = files?.documentKm?.[0];
+    return this.postService
+      .create(user, dto, { coverImage, document, documentEn, documentKm })
+      .then((post) => this.toPostResponse(post));
   }
 
   @Put(':id')
@@ -100,6 +119,8 @@ export class PostController {
       [
         { name: 'coverImage', maxCount: 1 },
         { name: 'document', maxCount: 1 },
+        { name: 'documentEn', maxCount: 1 },
+        { name: 'documentKm', maxCount: 1 },
       ],
       {
       storage: memoryStorage(),
@@ -114,11 +135,17 @@ export class PostController {
     files?: {
       coverImage?: UploadedFilePayload[];
       document?: UploadedFilePayload[];
+      documentEn?: UploadedFilePayload[];
+      documentKm?: UploadedFilePayload[];
     },
   ) {
     const coverImage = files?.coverImage?.[0];
     const document = files?.document?.[0];
-    return this.postService.update(id, dto, { coverImage, document }).then((post) => this.toPostResponse(post));
+    const documentEn = files?.documentEn?.[0];
+    const documentKm = files?.documentKm?.[0];
+    return this.postService
+      .update(id, dto, { coverImage, document, documentEn, documentKm })
+      .then((post) => this.toPostResponse(post));
   }
 
   @Delete(':id')
@@ -128,7 +155,27 @@ export class PostController {
     return this.postService.remove(id);
   }
 
+  private parseBooleanQuery(value: string | undefined, fieldName: string): boolean | undefined {
+    if (value === undefined || value === '') {
+      return undefined;
+    }
+
+    const normalized = String(value).trim().toLowerCase();
+    if (normalized === 'true' || normalized === '1') {
+      return true;
+    }
+    if (normalized === 'false' || normalized === '0') {
+      return false;
+    }
+
+    throw new BadRequestException(`${fieldName} must be true or false`);
+  }
+
   private toPostResponse(post: PostEntity) {
+    const documents = post.documents ?? null;
+    const documentEn = documents?.en ?? null;
+    const documentKm = documents?.km ?? null;
+
     return {
       id: post.id,
       title: post.title,
@@ -136,9 +183,19 @@ export class PostController {
       slug: post.slug,
       content: post.content,
       status: post.status,
+      isPublished: post.status === 'published',
+      publishedAt: post.publishedAt ?? null,
+      isFeatured: post.isFeatured,
+      expiredAt: post.expiredAt ?? null,
       coverImage: post.coverImage ?? null,
-      document: post.document ?? null,
-      documentThumbnail: post.documentThumbnail ?? null,
+      documents: {
+        en: documentEn,
+        km: documentKm,
+      },
+      documentThumbnails: {
+        en: documentEn?.thumbnailUrl ?? null,
+        km: documentKm?.thumbnailUrl ?? null,
+      },
       link: post.link ?? null,
       createdAt: post.createdAt,
       updatedAt: post.updatedAt,

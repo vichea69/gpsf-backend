@@ -1,7 +1,7 @@
 import {HttpException, HttpStatus, Injectable} from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
 import {In, Repository} from 'typeorm';
-import {PostEntity, PostStatus} from '@/modules/post/post.entity';
+import {PostDocuments, PostEntity, PostStatus} from '@/modules/post/post.entity';
 import slugify from 'slugify';
 import {CreatePostDto} from '@/modules/post/dto/create-post.dto';
 import {UpdatePostDto} from '@/modules/post/dto/update-post.dto';
@@ -14,6 +14,23 @@ import {MediaService} from '@/modules/media-manager/media.service';
 import type {MediaResponseInterface} from '@/modules/media-manager/types/media-response-interface';
 import * as fs from 'node:fs';
 import path from 'node:path';
+
+type DocumentLocale = 'en' | 'km';
+
+type DocumentInput = {
+    url?: string | null;
+    thumbnailUrl?: string | null;
+} | null;
+
+type PostDocumentInputDto = {
+    document?: string | null;
+    documentEn?: string | null;
+    documentKm?: string | null;
+    documents?: {
+        en?: DocumentInput;
+        km?: DocumentInput;
+    } | null;
+};
 
 @Injectable()
 export class PostService {
@@ -33,21 +50,43 @@ export class PostService {
     async create(
         user: UserEntity,
         dto: CreatePostDto,
-        files?: { coverImage?: UploadedFilePayload; document?: UploadedFilePayload },
+        files?: {
+            coverImage?: UploadedFilePayload;
+            document?: UploadedFilePayload;
+            documentEn?: UploadedFilePayload;
+            documentKm?: UploadedFilePayload;
+        },
     ): Promise<PostEntity> {
-        const slug = this.generateSlug(dto.title.en);
+        const normalizedTitle = this.normalizeLocalizedText(dto.title, 'Title', true);
+        const slug = this.generateSlugFromEnglish(normalizedTitle.en ?? null);
+        const desiredStatus = this.resolveStatusFromInput(dto.status, dto.isPublished);
+        const initialStatus = desiredStatus ?? PostStatus.Draft;
+        const publishedAt = this.parseOptionalDate(dto.publishedAt, 'publishedAt');
+        const expiredAt = this.parseOptionalDate(dto.expiredAt, 'expiredAt');
+        this.assertDateRange(publishedAt, expiredAt);
 
-        const exists = await this.postRepository.findOne({where: {slug}});
-        if (exists) {
-            throw new HttpException('Post slug already exists', HttpStatus.UNPROCESSABLE_ENTITY);
+        if (slug) {
+            const exists = await this.postRepository.findOne({where: {slug}});
+            if (exists) {
+                throw new HttpException('Post slug already exists', HttpStatus.UNPROCESSABLE_ENTITY);
+            }
         }
 
         const newPost = this.postRepository.create({
-            title: dto.title,
-            slug,
-            description: dto.description ?? undefined,
-            content: dto.content ?? null,
-            status: dto.status ?? PostStatus.Draft,
+            title: normalizedTitle,
+            slug: slug ?? null,
+            description:
+                dto.description !== undefined
+                    ? this.normalizeLocalizedText(dto.description, 'Description', true)
+                    : undefined,
+            content:
+                dto.content !== undefined
+                    ? this.normalizeLocalizedContent(dto.content, true)
+                    : null,
+            status: initialStatus,
+            publishedAt: initialStatus === PostStatus.Published ? (publishedAt ?? new Date()) : null,
+            isFeatured: dto.isFeatured ?? false,
+            expiredAt,
             author: user ?? null,
         });
 
@@ -90,23 +129,20 @@ export class PostService {
         }
 
         const coverImageFile = files?.coverImage;
-        const documentFile = files?.document;
+        const legacyDocumentFile = files?.document;
+        const documentEnFile = files?.documentEn ?? legacyDocumentFile;
+        const documentKmFile = files?.documentKm;
 
         if (coverImageFile?.buffer) {
             newPost.coverImage = await this.uploadCoverImage(coverImageFile);
         } else if (dto.coverImage !== undefined) {
             newPost.coverImage = this.normalizeOptionalString(dto.coverImage);
         }
-
-        if (documentFile?.buffer) {
-            const media = await this.saveDocumentToMediaManager(documentFile);
-            newPost.document = media.url;
-            newPost.documentThumbnail = media.thumbnailUrl ?? null;
-        } else if (dto.document !== undefined) {
-            const normalized = this.normalizeOptionalString(dto.document);
-            newPost.document = normalized;
-            newPost.documentThumbnail = normalized ? await this.resolveDocumentThumbnail(normalized) : null;
-        }
+        newPost.documents = await this.resolveNextDocuments(
+            null,
+            dto,
+            { document: legacyDocumentFile, documentEn: documentEnFile, documentKm: documentKmFile },
+        );
 
         if (dto.link !== undefined) {
             newPost.link = this.normalizeOptionalString(dto.link);
@@ -120,12 +156,18 @@ export class PostService {
         return this.findOne(savedPost.id);
     }
 
-    async findAll(page = 1, pageSize = 10): Promise<{ items: PostEntity[]; total: number }> {
-        const take = Math.min(Math.max(Number(pageSize) || 10, 1), 50);
+    async findAll(
+        page = 1,
+        pageSize = 20,
+        isFeatured?: boolean,
+    ): Promise<{ items: PostEntity[]; total: number }> {
+        const take = Math.min(Math.max(Number(pageSize) || 20, 1), 50);
         const current = Math.max(Number(page) || 1, 1);
         const skip = (current - 1) * take;
+        const where = isFeatured === undefined ? undefined : { isFeatured };
 
         const [items, total] = await this.postRepository.findAndCount({
+            where,
             order: {createdAt: 'DESC'},
             relations: ['author', 'category', 'page', 'sections', 'section'],
             take,
@@ -161,41 +203,92 @@ export class PostService {
         return post;
     }
 
+    async findOneBySlug(slug: string): Promise<PostEntity> {
+        const normalizedSlug = slug?.trim().toLowerCase();
+        if (!normalizedSlug) {
+            throw new HttpException('Post slug is required', HttpStatus.BAD_REQUEST);
+        }
+
+        const post = await this.postRepository.findOne({
+            where: { slug: normalizedSlug },
+            relations: ['author', 'category', 'page', 'sections', 'section'],
+        });
+        if (!post) {
+            throw new HttpException('Post not found', HttpStatus.NOT_FOUND);
+        }
+        return post;
+    }
+
     async update(
         id: number,
         dto: UpdatePostDto,
-        files?: { coverImage?: UploadedFilePayload; document?: UploadedFilePayload },
+        files?: {
+            coverImage?: UploadedFilePayload;
+            document?: UploadedFilePayload;
+            documentEn?: UploadedFilePayload;
+            documentKm?: UploadedFilePayload;
+        },
     ): Promise<PostEntity> {
         const post = await this.findOne(id);
 
-        if (dto.title?.en && dto.title.en.trim() && dto.title.en !== post.title.en) {
-            const newSlug = this.generateSlug(dto.title.en);
-            const exists = await this.postRepository.findOne({where: {slug: newSlug}});
-            if (exists && exists.id !== post.id) {
-                throw new HttpException('Post slug already exists', HttpStatus.UNPROCESSABLE_ENTITY);
-            }
-            post.slug = newSlug;
-        }
-
         if (dto.title !== undefined) {
-            post.title = {...post.title, ...dto.title};
+            const mergedTitle = this.normalizeLocalizedText(
+                {...(post.title ?? {}), ...dto.title},
+                'Title',
+                true,
+            );
+            post.title = mergedTitle;
+
+            if (dto.title.en !== undefined) {
+                const newSlug = this.generateSlugFromEnglish(mergedTitle.en ?? null);
+                if (newSlug) {
+                    const exists = await this.postRepository.findOne({where: {slug: newSlug}});
+                    if (exists && exists.id !== post.id) {
+                        throw new HttpException('Post slug already exists', HttpStatus.UNPROCESSABLE_ENTITY);
+                    }
+                }
+                post.slug = newSlug;
+            }
         }
 
         if (dto.content !== undefined) {
-            post.content = dto.content ?? null;
+            post.content = this.normalizeLocalizedContent(dto.content, true);
         }
 
         if (dto.description !== undefined) {
-            const merged = {...(post.description ?? {en: ''}), ...dto.description};
-            if (!merged.en || !merged.en.trim()) {
-                throw new HttpException('Description en is required', HttpStatus.BAD_REQUEST);
-            }
-            post.description = merged;
+            post.description = this.normalizeLocalizedText(
+                {...(post.description ?? {}), ...dto.description},
+                'Description',
+                true,
+            );
         }
 
-        if (dto.status !== undefined) {
-            post.status = dto.status;
+        const nextStatus = this.resolveStatusFromInput(dto.status, dto.isPublished);
+        if (nextStatus !== undefined) {
+            post.status = nextStatus;
         }
+
+        if (dto.publishedAt !== undefined) {
+            post.publishedAt = this.parseOptionalDate(dto.publishedAt, 'publishedAt');
+        }
+
+        if (dto.isFeatured !== undefined) {
+            post.isFeatured = dto.isFeatured;
+        }
+
+        if (dto.expiredAt !== undefined) {
+            post.expiredAt = this.parseOptionalDate(dto.expiredAt, 'expiredAt');
+        }
+
+        if (post.status === PostStatus.Published) {
+            if (!post.publishedAt) {
+                post.publishedAt = new Date();
+            }
+        } else {
+            post.publishedAt = null;
+        }
+
+        this.assertDateRange(post.publishedAt ?? null, post.expiredAt ?? null);
 
         if (dto.categoryId !== undefined) {
             if (dto.categoryId === null as any) {
@@ -244,7 +337,9 @@ export class PostService {
         }
 
         const coverImageFile = files?.coverImage;
-        const documentFile = files?.document;
+        const legacyDocumentFile = files?.document;
+        const documentEnFile = files?.documentEn ?? legacyDocumentFile;
+        const documentKmFile = files?.documentKm;
 
         const previousCoverImage = post.coverImage ?? null;
         if (coverImageFile?.buffer) {
@@ -260,15 +355,11 @@ export class PostService {
             }
         }
 
-        if (documentFile?.buffer) {
-            const media = await this.saveDocumentToMediaManager(documentFile);
-            post.document = media.url;
-            post.documentThumbnail = media.thumbnailUrl ?? null;
-        } else if (dto.document !== undefined) {
-            const normalized = this.normalizeOptionalString(dto.document);
-            post.document = normalized;
-            post.documentThumbnail = normalized ? await this.resolveDocumentThumbnail(normalized) : null;
-        }
+        post.documents = await this.resolveNextDocuments(
+            post.documents ?? null,
+            dto,
+            { document: legacyDocumentFile, documentEn: documentEnFile, documentKm: documentKmFile },
+        );
 
         if (dto.link !== undefined) {
             post.link = this.normalizeOptionalString(dto.link);
@@ -360,6 +451,173 @@ export class PostService {
         return (process.env.LOCAL_UPLOAD_PATH || 'uploads').replace(/^\/+|\/+$/g, '');
     }
 
+    private resolveStatusFromInput(
+        status?: PostStatus,
+        isPublished?: boolean,
+    ): PostStatus | undefined {
+        if (isPublished !== undefined) {
+            return isPublished ? PostStatus.Published : PostStatus.Draft;
+        }
+        return status;
+    }
+
+    private parseOptionalDate(
+        value: string | Date | null | undefined,
+        fieldName: string,
+    ): Date | null {
+        if (value === undefined || value === null || value === '') {
+            return null;
+        }
+
+        const parsedDate = value instanceof Date ? value : new Date(value);
+        if (Number.isNaN(parsedDate.getTime())) {
+            throw new HttpException(`${fieldName} must be a valid date`, HttpStatus.BAD_REQUEST);
+        }
+        return parsedDate;
+    }
+
+    private assertDateRange(
+        publishedAt: Date | null,
+        expiredAt: Date | null,
+    ): void {
+        if (publishedAt && expiredAt && expiredAt.getTime() < publishedAt.getTime()) {
+            throw new HttpException('expiredAt must be greater than or equal to publishedAt', HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private async resolveNextDocuments(
+        currentDocuments: PostDocuments | null,
+        dto: PostDocumentInputDto,
+        files?: {
+            document?: UploadedFilePayload;
+            documentEn?: UploadedFilePayload;
+            documentKm?: UploadedFilePayload;
+        },
+    ): Promise<PostDocuments | null> {
+        const next = this.cloneDocuments(currentDocuments);
+
+        // Backward-compatible text inputs.
+        if (dto.documentEn !== undefined || dto.document !== undefined) {
+            await this.assignDocumentFromUrl(next, 'en', dto.documentEn ?? dto.document ?? null);
+        }
+        if (dto.documentKm !== undefined) {
+            await this.assignDocumentFromUrl(next, 'km', dto.documentKm);
+        }
+
+        // New JSONB payload.
+        if (dto.documents === null) {
+            delete next.en;
+            delete next.km;
+        } else if (dto.documents !== undefined) {
+            if (dto.documents.en !== undefined) {
+                await this.assignDocumentFromInput(next, 'en', dto.documents.en);
+            }
+            if (dto.documents.km !== undefined) {
+                await this.assignDocumentFromInput(next, 'km', dto.documents.km);
+            }
+        }
+
+        // Uploaded files have highest priority.
+        const legacyDocumentFile = files?.document;
+        const documentEnFile = files?.documentEn ?? legacyDocumentFile;
+        const documentKmFile = files?.documentKm;
+
+        if (documentEnFile?.buffer) {
+            const media = await this.saveDocumentToMediaManager(documentEnFile);
+            next.en = {
+                url: media.url,
+                thumbnailUrl: media.thumbnailUrl ?? null,
+            };
+        }
+
+        if (documentKmFile?.buffer) {
+            const media = await this.saveDocumentToMediaManager(documentKmFile);
+            next.km = {
+                url: media.url,
+                thumbnailUrl: media.thumbnailUrl ?? null,
+            };
+        }
+
+        return this.normalizeDocuments(next);
+    }
+
+    private cloneDocuments(documents: PostDocuments | null): PostDocuments {
+        return {
+            ...(documents?.en
+                ? {
+                      en: {
+                          url: documents.en.url,
+                          thumbnailUrl: documents.en.thumbnailUrl ?? null,
+                      },
+                  }
+                : {}),
+            ...(documents?.km
+                ? {
+                      km: {
+                          url: documents.km.url,
+                          thumbnailUrl: documents.km.thumbnailUrl ?? null,
+                      },
+                  }
+                : {}),
+        };
+    }
+
+    private async assignDocumentFromInput(
+        documents: PostDocuments,
+        locale: DocumentLocale,
+        input: DocumentInput,
+    ): Promise<void> {
+        if (input === null) {
+            delete documents[locale];
+            return;
+        }
+
+        if (!input || input.url === undefined) {
+            throw new HttpException(`documents.${locale}.url is required`, HttpStatus.BAD_REQUEST);
+        }
+
+        await this.assignDocumentFromUrl(documents, locale, input.url, input.thumbnailUrl);
+    }
+
+    private async assignDocumentFromUrl(
+        documents: PostDocuments,
+        locale: DocumentLocale,
+        url: string | null | undefined,
+        thumbnailUrl?: string | null,
+    ): Promise<void> {
+        const normalizedUrl = this.normalizeOptionalString(url);
+        if (!normalizedUrl) {
+            delete documents[locale];
+            return;
+        }
+
+        const normalizedThumbnail = thumbnailUrl === undefined
+            ? await this.resolveDocumentThumbnail(normalizedUrl)
+            : this.normalizeOptionalString(thumbnailUrl);
+
+        documents[locale] = {
+            url: normalizedUrl,
+            thumbnailUrl: normalizedThumbnail,
+        };
+    }
+
+    private normalizeDocuments(documents: PostDocuments): PostDocuments | null {
+        const normalized: PostDocuments = {};
+        if (documents.en?.url) {
+            normalized.en = {
+                url: documents.en.url,
+                thumbnailUrl: documents.en.thumbnailUrl ?? null,
+            };
+        }
+        if (documents.km?.url) {
+            normalized.km = {
+                url: documents.km.url,
+                thumbnailUrl: documents.km.thumbnailUrl ?? null,
+            };
+        }
+        return Object.keys(normalized).length ? normalized : null;
+    }
+
     private normalizeOptionalString(value: string | null | undefined): string | null {
         if (value === null || value === undefined) {
             return null;
@@ -368,10 +626,79 @@ export class PostService {
         return trimmed.length ? trimmed : null;
     }
 
-    private generateSlug(title: string): string {
-        if (!title || typeof title !== 'string' || !title.trim()) {
-            throw new HttpException('Invalid title', HttpStatus.BAD_REQUEST);
+    private normalizeLocalizedText(
+        value: { en?: string | null; km?: string | null } | null | undefined,
+        fieldName: string,
+        requireAtLeastOne = false,
+    ): { en?: string; km?: string } {
+        const en = this.normalizeOptionalString(value?.en ?? null);
+        const km = this.normalizeOptionalString(value?.km ?? null);
+
+        if (requireAtLeastOne && !en && !km) {
+            throw new HttpException(`${fieldName} requires at least one language`, HttpStatus.BAD_REQUEST);
         }
-        return slugify(title, {lower: true, strict: true, trim: true});
+
+        const normalized: { en?: string; km?: string } = {};
+        if (en) {
+            normalized.en = en;
+        }
+        if (km) {
+            normalized.km = km;
+        }
+        return normalized;
+    }
+
+    private normalizeLocalizedContent(
+        value:
+            | {
+                  en?: Record<string, unknown> | null;
+                  km?: Record<string, unknown> | null;
+              }
+            | null
+            | undefined,
+        requireAtLeastOne = false,
+    ): { en?: Record<string, unknown>; km?: Record<string, unknown> } | null {
+        if (value === null || value === undefined) {
+            return null;
+        }
+
+        const en = this.normalizeOptionalObject(value.en);
+        const km = this.normalizeOptionalObject(value.km);
+
+        if (requireAtLeastOne && !en && !km) {
+            throw new HttpException('Content requires at least one language', HttpStatus.BAD_REQUEST);
+        }
+
+        const normalized: { en?: Record<string, unknown>; km?: Record<string, unknown> } = {};
+        if (en) {
+            normalized.en = en;
+        }
+        if (km) {
+            normalized.km = km;
+        }
+        return normalized;
+    }
+
+    private normalizeOptionalObject(value: unknown): Record<string, unknown> | null {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) {
+            return null;
+        }
+
+        const normalized = value as Record<string, unknown>;
+        return Object.keys(normalized).length ? normalized : null;
+    }
+
+    private generateSlugFromEnglish(title?: string | null): string | null {
+        if (title === undefined || title === null) {
+            return null;
+        }
+
+        const normalizedTitle = title.trim();
+        if (!normalizedTitle) {
+            return null;
+        }
+
+        const slug = slugify(normalizedTitle, {lower: true, strict: true, trim: true});
+        return slug || null;
     }
 }

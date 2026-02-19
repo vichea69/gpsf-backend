@@ -235,6 +235,10 @@ export class SectionService {
     }
 
     private toPostBlock(post: PostEntity): SectionBlockPost {
+        const documents = post.documents ?? null;
+        const documentEn = documents?.en ?? null;
+        const documentKm = documents?.km ?? null;
+
         return {
             id: post.id,
             title: post.title,
@@ -243,8 +247,12 @@ export class SectionService {
             content: post.content ?? null,
             status: post.status,
             coverImage: post.coverImage ?? null,
-            document: post.document ?? null,
-            documentThumbnail: post.documentThumbnail ?? null,
+            document: documentEn?.url ?? documentKm?.url ?? null,
+            documentThumbnail: documentEn?.thumbnailUrl ?? documentKm?.thumbnailUrl ?? null,
+            documents: {
+                en: documentEn,
+                km: documentKm,
+            },
             link: post.link ?? null,
             createdAt: post.createdAt,
             updatedAt: post.updatedAt,

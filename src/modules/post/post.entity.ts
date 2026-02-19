@@ -20,37 +20,53 @@ export enum PostStatus {
     Published = 'published'
 }
 
+export interface PostDocumentItem {
+    url: string;
+    thumbnailUrl?: string | null;
+}
+
+export interface PostDocuments {
+    en?: PostDocumentItem | null;
+    km?: PostDocumentItem | null;
+}
+
 @Entity({ name: 'posts' })
 export class PostEntity {
     @PrimaryGeneratedColumn('increment')
     id: number;
 
     @Column({ type: 'jsonb' })
-    title: { en: string; km?: string };
+    title: { en?: string; km?: string };
 
     @Column({ type: 'jsonb', nullable: true })
-    description?: { en: string; km?: string };
+    description?: { en?: string; km?: string };
 
-    @Column({ unique: true, length: 240, nullable: true })
-    slug: string;
+    @Column({ type: 'varchar', unique: true, length: 240, nullable: true })
+    slug?: string | null;
 
     @Column({ type: 'jsonb', nullable: true })
     content?: {
-        en: Record<string, unknown>;
+        en?: Record<string, unknown>;
         km?: Record<string, unknown>
     } | null;
 
     @Column({ type: 'enum', enum: PostStatus, default: PostStatus.Draft })
     status: PostStatus;
 
+    @Column({ type: 'timestamp', nullable: true })
+    publishedAt?: Date | null;
+
+    @Column({ type: 'boolean', default: false })
+    isFeatured?: boolean;
+
+    @Column({ type: 'timestamp', nullable: true })
+    expiredAt?: Date | null;
+
     @Column({ type: 'varchar', length: 500, nullable: true })
     coverImage?: string | null;
 
-    @Column({ type: 'varchar', length: 500, nullable: true })
-    document?: string | null;
-
-    @Column({ type: 'varchar', length: 600, nullable: true })
-    documentThumbnail?: string | null;
+    @Column({ type: 'jsonb', nullable: true })
+    documents?: PostDocuments | null;
 
     @Column({ type: 'varchar', length: 500, nullable: true })
     link?: string | null;
