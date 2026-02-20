@@ -25,6 +25,7 @@ import { Action } from '@/modules/roles/enums/actions.enum';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { UploadedFilePayload } from '@/types/uploaded-file.type';
+import { SiteSettingEntity } from '@/modules/site-setting/site-setting.entity';
 
 const SITE_LOGO_FIELDS: Array<{ name: string; maxCount: number }> = [
   { name: 'logo', maxCount: 1 },
@@ -58,12 +59,16 @@ export class SiteSettingController {
 
   @Get()
   findAll() {
-    return this.siteSettingService.findAll();
+    return this.siteSettingService
+      .findAll()
+      .then((items) => items.map((item) => this.toSiteSettingResponse(item)));
   }
 
   @Get('current')
   findCurrent() {
-    return this.siteSettingService.findCurrent();
+    return this.siteSettingService
+      .findCurrent()
+      .then((item) => (item ? this.toSiteSettingResponse(item) : null));
   }
 
   @Get('current/contact-panel')
@@ -73,7 +78,9 @@ export class SiteSettingController {
 
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.siteSettingService.findOne(id);
+    return this.siteSettingService
+      .findOne(id)
+      .then((item) => this.toSiteSettingResponse(item));
   }
 
   @Post()
@@ -92,7 +99,9 @@ export class SiteSettingController {
     files: Partial<Record<'logo' | 'siteLogo' | 'SiteLogo', UploadedFilePayload[]>>,
   ) {
     const file = this.pickFile(files);
-    return this.siteSettingService.create(dto, file);
+    return this.siteSettingService
+      .create(dto, file)
+      .then((item) => this.toSiteSettingResponse(item));
   }
 
   @Put('current')
@@ -111,7 +120,9 @@ export class SiteSettingController {
     files: Partial<Record<'logo' | 'siteLogo' | 'SiteLogo', UploadedFilePayload[]>>,
   ) {
     const file = this.pickFile(files);
-    return this.siteSettingService.upsertCurrent(dto, file);
+    return this.siteSettingService
+      .upsertCurrent(dto, file)
+      .then((item) => this.toSiteSettingResponse(item));
   }
 
   @Put(':id')
@@ -131,7 +142,9 @@ export class SiteSettingController {
     files: Partial<Record<'logo' | 'siteLogo' | 'SiteLogo', UploadedFilePayload[]>>,
   ) {
     const file = this.pickFile(files);
-    return this.siteSettingService.update(id, dto, file);
+    return this.siteSettingService
+      .update(id, dto, file)
+      .then((item) => this.toSiteSettingResponse(item));
   }
 
   @Delete(':id')
@@ -151,5 +164,27 @@ export class SiteSettingController {
       null;
     if (!raw || !raw.buffer) return null;
     return { originalname: raw.originalname, buffer: raw.buffer, mimetype: raw.mimetype };
+  }
+
+  private toSiteSettingResponse(siteSetting: SiteSettingEntity) {
+    return {
+      id: siteSetting.id,
+      title: siteSetting.title ?? { en: siteSetting.siteName },
+      description:
+        siteSetting.description ??
+        (siteSetting.siteDescription ? { en: siteSetting.siteDescription } : null),
+      logo: siteSetting.logo ?? siteSetting.siteLogo ?? null,
+      footerBackground: siteSetting.footerBackground ?? null,
+      address:
+        siteSetting.address ??
+        (siteSetting.contactAddress ? { en: siteSetting.contactAddress } : null),
+      contact: siteSetting.contact ?? null,
+      openTime:
+        siteSetting.openTime ??
+        (siteSetting.contactOpenTime ? { en: siteSetting.contactOpenTime } : null),
+      socialLinks: siteSetting.socialLinks ?? [],
+      createdAt: siteSetting.createdAt,
+      updatedAt: siteSetting.updatedAt,
+    };
   }
 }

@@ -1,126 +1,159 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+import {
+  IsArray,
+  IsDefined,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+  ValidateNested,
+} from 'class-validator';
+import { plainToInstance, Transform, Type } from 'class-transformer';
 
-export class CreateSiteSettingDto {
+function parseJsonValue(value: unknown): unknown {
+  if (typeof value !== 'string') {
+    return value;
+  }
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+function toInstance<T>(value: unknown, ctor: new () => T): T | undefined {
+  if (value === undefined || value === '') {
+    return undefined;
+  }
+  if (value === null) {
+    return undefined;
+  }
+  return plainToInstance(ctor, parseJsonValue(value));
+}
+
+function toArray<T>(value: unknown, ctor: new () => T): T[] | undefined {
+  if (value === undefined || value === '') {
+    return undefined;
+  }
+  if (value === null) {
+    return [];
+  }
+  const parsed = parseJsonValue(value);
+  const list = Array.isArray(parsed) ? parsed : [parsed];
+  return list.map((item) => plainToInstance(ctor, item));
+}
+
+export class LocalizedTextDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  en?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  km?: string;
+}
+
+export class ContactDeskDto {
   @IsString()
   @IsNotEmpty()
-  @MaxLength(200)
-  siteName: string;
-
-  @IsString()
-  @IsOptional()
-  siteDescription?: string;
-
-  @IsString()
-  @IsOptional()
-  @MaxLength(500)
-  siteKeyword?: string;
-
-  @IsString()
-  @IsOptional()
-  @MaxLength(50)
-  sitePhone?: string;
-
-  @IsString()
-  @IsOptional()
-  @MaxLength(150)
-  siteAuthor?: string;
-
-  @IsString()
-  @IsOptional()
-  @MaxLength(150)
-  siteEmail?: string;
-
-  @IsString()
-  @IsOptional()
-  @MaxLength(600)
-  siteLogo?: string;
-
-  @IsString()
-  @IsOptional()
-  @MaxLength(600)
-  contactHeroImage?: string;
-
-  @IsString()
-  @IsOptional()
   @MaxLength(100)
-  contactSectionLabel?: string;
+  title: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @MaxLength(150, { each: true })
+  emails: string[];
+}
+
+export class ContactLanguageDto {
+  @IsArray()
+  @IsString({ each: true })
+  @MaxLength(50, { each: true })
+  phones: string[];
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ContactDeskDto)
+  desks: ContactDeskDto[];
+}
+
+export class LocalizedContactDto {
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ContactLanguageDto)
+  en?: ContactLanguageDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ContactLanguageDto)
+  km?: ContactLanguageDto;
+}
+
+export class SocialLinkDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  icon: string;
 
   @IsString()
-  @IsOptional()
-  @MaxLength(300)
-  contactHeadline?: string;
+  @IsNotEmpty()
+  @MaxLength(100)
+  title: string;
 
-  @IsString()
-  @IsOptional()
-  contactAddress?: string;
-
-  @IsString()
-  @IsOptional()
-  @MaxLength(50)
-  contactPhonePrimary?: string;
-
-  @IsString()
-  @IsOptional()
-  @MaxLength(50)
-  contactPhoneSecondary?: string;
-
-  @IsOptional()
-  @IsEmail()
-  @MaxLength(150)
-  contactEmailGeneral?: string;
-
-  @IsOptional()
-  @IsEmail()
-  @MaxLength(150)
-  contactEmailInfo?: string;
-
-  @IsOptional()
-  @IsEmail()
-  @MaxLength(150)
-  contactEmailChinaDesk?: string;
-
-  @IsOptional()
-  @IsEmail()
-  @MaxLength(150)
-  contactEmailEuDesk?: string;
-
-  @IsOptional()
-  @IsEmail()
-  @MaxLength(150)
-  contactEmailJapanDesk?: string;
-
-  @IsOptional()
-  @IsEmail()
-  @MaxLength(150)
-  contactEmailKoreaDesk?: string;
-
-  @IsString()
-  @IsOptional()
-  @MaxLength(200)
-  contactOpenTime?: string;
-
-  @IsString()
-  @IsOptional()
-  @MaxLength(1000)
-  contactMapEmbedUrl?: string;
-
-  @IsOptional()
   @IsUrl()
   @MaxLength(500)
-  socialFacebookUrl?: string;
+  url: string;
+}
+
+export class CreateSiteSettingDto {
+  @IsDefined()
+  @Transform(({ value }) => toInstance(value, LocalizedTextDto))
+  @ValidateNested()
+  @Type(() => LocalizedTextDto)
+  title: LocalizedTextDto;
 
   @IsOptional()
-  @IsUrl()
-  @MaxLength(500)
-  socialTelegramUrl?: string;
+  @Transform(({ value }) => toInstance(value, LocalizedTextDto))
+  @ValidateNested()
+  @Type(() => LocalizedTextDto)
+  description?: LocalizedTextDto;
 
   @IsOptional()
-  @IsUrl()
-  @MaxLength(500)
-  socialYoutubeUrl?: string;
+  @Transform(({ value }) => (value === '' ? null : value))
+  @IsString()
+  @MaxLength(600)
+  logo?: string | null;
 
   @IsOptional()
-  @IsUrl()
-  @MaxLength(500)
-  socialLinkedinUrl?: string;
+  @Transform(({ value }) => (value === '' ? null : value))
+  @IsString()
+  @MaxLength(600)
+  footerBackground?: string | null;
+
+  @IsOptional()
+  @Transform(({ value }) => toInstance(value, LocalizedTextDto))
+  @ValidateNested()
+  @Type(() => LocalizedTextDto)
+  address?: LocalizedTextDto;
+
+  @IsOptional()
+  @Transform(({ value }) => toInstance(value, LocalizedContactDto))
+  @ValidateNested()
+  @Type(() => LocalizedContactDto)
+  contact?: LocalizedContactDto;
+
+  @IsOptional()
+  @Transform(({ value }) => toInstance(value, LocalizedTextDto))
+  @ValidateNested()
+  @Type(() => LocalizedTextDto)
+  openTime?: LocalizedTextDto;
+
+  @IsOptional()
+  @Transform(({ value }) => toArray(value, SocialLinkDto))
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SocialLinkDto)
+  socialLinks?: SocialLinkDto[];
 }
