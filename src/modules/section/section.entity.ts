@@ -18,6 +18,7 @@ export enum SectionBlockType {
   BENEFITS = 'benefits',
   POST_LIST = 'post_list',
   WORK_GROUPS = 'work_groups',
+  ANNOUNCEMENT = 'announcement',
 }
 
 export type SectionSettings = {

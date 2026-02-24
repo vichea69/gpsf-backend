@@ -28,7 +28,7 @@ export class ArticleController {
     //create article
     @Post('articles')
     @UseGuards(AuthGuard, PermissionsGuard)
-    @Permissions({ resource: Resource.Articles, actions: [Action.Create] })
+    @Permissions({ resource: Resource.Posts, actions: [Action.Create] })
     async createArticle(@Body('article') createArticleDto: CreateArticleDto, @User() user: UserEntity) {
         const newArticle = await this.articleService.createArticle(user, createArticleDto);
         return this.articleService.getArticleResponse(newArticle);
@@ -36,7 +36,7 @@ export class ArticleController {
     //delete article
     @Delete('articles/:slug')
     @UseGuards(AuthGuard, PermissionsGuard)
-    @Permissions({ resource: Resource.Articles, actions: [Action.Delete] })
+    @Permissions({ resource: Resource.Posts, actions: [Action.Delete] })
     async deleteArticle(@Param('slug') slug: string, @User() user: UserEntity) {
         const currentUserId = user.id;
         await this.articleService.deleteArticle(slug, currentUserId);
@@ -47,7 +47,7 @@ export class ArticleController {
     //update article
     @Put('articles/:slug')
     @UseGuards(AuthGuard, PermissionsGuard)
-    @Permissions({ resource: Resource.Articles, actions: [Action.Update] })
+    @Permissions({ resource: Resource.Posts, actions: [Action.Update] })
     @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
     async updateArticle(
         @Param('slug') slug: string,

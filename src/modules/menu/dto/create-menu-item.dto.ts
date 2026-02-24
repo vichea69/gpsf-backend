@@ -1,10 +1,32 @@
-import { IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+  ValidateIf,
+  ValidateNested,
+} from 'class-validator';
+
+export class MenuItemLabelDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  en?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  km?: string;
+}
 
 export class CreateMenuItemDto {
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(200)
-  label: string;
+  @IsObject()
+  @ValidateNested()
+  @Type(() => MenuItemLabelDto)
+  label: MenuItemLabelDto;
 
   @IsString()
   @IsOptional()
@@ -16,8 +38,9 @@ export class CreateMenuItemDto {
   @Min(0)
   orderIndex?: number;
 
+  @ValidateIf((_, value) => value !== null)
   @IsInt()
   @IsOptional()
   @Min(1)
-  parentId?: number;
+  parentId?: number | null;
 }

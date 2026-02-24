@@ -9,6 +9,7 @@ import {
     Post,
     Query,
     UploadedFiles,
+    UseGuards,
     UseInterceptors,
     UsePipes,
     ValidationPipe,
@@ -17,6 +18,11 @@ import {FilesInterceptor} from "@nestjs/platform-express";
 import {MediaService} from "@/modules/media-manager/media.service";
 import {MediasResponseInterface} from "@/modules/media-manager/types/medias-response-interface";
 import { CreateMediaFolderDto } from '@/modules/media-manager/dto/create-media-folder.dto';
+import { AuthGuard } from '@/modules/auth/guards/auth.guard';
+import { PermissionsGuard } from '@/modules/roles/guards/permissions.guard';
+import { Permissions } from '@/modules/roles/decorator/permissions.decorator';
+import { Resource } from '@/modules/roles/enums/resource.enum';
+import { Action } from '@/modules/roles/enums/actions.enum';
 
 
 @Controller('media')
@@ -26,6 +32,8 @@ export class MediaController {
 
     //Get all Item in media
     @Get()
+    @UseGuards(AuthGuard, PermissionsGuard)
+    @Permissions({ resource: Resource.Media, actions: [Action.Read] })
     findAll(
         @Query('page') page?: number,
         @Query('pageSize') pageSize?: number,
@@ -40,6 +48,8 @@ export class MediaController {
     }
 
     @Get('folders')
+    @UseGuards(AuthGuard, PermissionsGuard)
+    @Permissions({ resource: Resource.Media, actions: [Action.Read] })
     listFolders() {
         return this.mediaService.listFolders().then((data) => ({
             success: true,
@@ -49,6 +59,8 @@ export class MediaController {
     }
 
     @Get('folders/:id')
+    @UseGuards(AuthGuard, PermissionsGuard)
+    @Permissions({ resource: Resource.Media, actions: [Action.Read] })
     findFolderById(
         @Param('id', ParseIntPipe) id: number,
         @Query('page') page?: number,
@@ -62,6 +74,8 @@ export class MediaController {
     }
 
     @Post('folders')
+    @UseGuards(AuthGuard, PermissionsGuard)
+    @Permissions({ resource: Resource.Media, actions: [Action.Create] })
     @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
     createFolder(@Body() dto: CreateMediaFolderDto) {
         return this.mediaService.createFolder(dto.name).then((data) => ({
@@ -72,6 +86,8 @@ export class MediaController {
     }
 
     @Delete('folders/:id')
+    @UseGuards(AuthGuard, PermissionsGuard)
+    @Permissions({ resource: Resource.Media, actions: [Action.Delete] })
     async deleteFolder(
         @Param('id', ParseIntPipe) id: number,
         @Query('force') force?: string,
@@ -92,12 +108,16 @@ export class MediaController {
 
     //Get by id
     @Get(':id')
+    @UseGuards(AuthGuard, PermissionsGuard)
+    @Permissions({ resource: Resource.Media, actions: [Action.Read] })
     findOne(@Param('id', ParseIntPipe) id: number) {
         return this.mediaService.findOne(id);
     }
 
     //Create media
     @Post('upload')
+    @UseGuards(AuthGuard, PermissionsGuard)
+    @Permissions({ resource: Resource.Media, actions: [Action.Create] })
     @UseInterceptors(FilesInterceptor('files', 20))
     uploadToRoot(
         @UploadedFiles() files: Express.Multer.File[],
@@ -110,6 +130,8 @@ export class MediaController {
 
     //Create media in folder
     @Post('upload/folders/:folderId')
+    @UseGuards(AuthGuard, PermissionsGuard)
+    @Permissions({ resource: Resource.Media, actions: [Action.Create] })
     @UseInterceptors(FilesInterceptor('files', 20))
     uploadToFolder(
         @Param('folderId', ParseIntPipe) folderId: number,
@@ -123,6 +145,8 @@ export class MediaController {
 
     //Delete something in media
     @Delete(':id')
+    @UseGuards(AuthGuard, PermissionsGuard)
+    @Permissions({ resource: Resource.Media, actions: [Action.Delete] })
     remove(@Param('id', ParseIntPipe) id: number) {
         return this.mediaService.remove(id);
     }

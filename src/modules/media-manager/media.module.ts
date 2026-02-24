@@ -5,10 +5,17 @@ import {Media} from "@/modules/media-manager/media.entity";
 import { MediaFolder } from '@/modules/media-manager/media-folder.entity';
 import {StorageModule} from "@/storage/storage.module";
 import {MediaService} from "@/modules/media-manager/media.service";
+import { AuthModule } from '@/modules/auth/auth.module';
+import { RoleModule } from '@/modules/roles/role.module';
 
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Media, MediaFolder]), StorageModule,],
+    imports: [
+        TypeOrmModule.forFeature([Media, MediaFolder]),
+        StorageModule,
+        AuthModule,
+        RoleModule,
+    ],
     controllers: [MediaController],
     providers: [MediaService],
     exports: [MediaService],

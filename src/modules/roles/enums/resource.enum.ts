@@ -3,10 +3,10 @@ export enum Resource {
     Categories = 'categories',
     Pages = 'pages',
     Posts = 'posts',
+    Media = 'media',
     Menu = 'menu',
     Users = 'users',
     Roles = 'roles',
-    Articles = 'articles',
     SiteSettings = 'site-settings',
     Testimonials = 'testimonials',
 }

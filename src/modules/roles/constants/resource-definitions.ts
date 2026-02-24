@@ -70,6 +70,17 @@ export const RESOURCE_DEFINITIONS: ResourceDefinition[] = [
         ],
     },
     {
+        resource: Resource.Media,
+        label: 'Media Manager',
+        description: 'Upload and manage media files and folders.',
+        actions: [
+            { action: Action.Read, label: 'View' },
+            { action: Action.Create, label: 'Create' },
+            { action: Action.Update, label: 'Update' },
+            { action: Action.Delete, label: 'Delete' },
+        ],
+    },
+    {
         resource: Resource.Testimonials,
         label: 'Testimonials',
         description: 'Create and manage testimonials.',
@@ -106,17 +117,6 @@ export const RESOURCE_DEFINITIONS: ResourceDefinition[] = [
         resource: Resource.Roles,
         label: 'Roles',
         description: 'Manage roles and their permissions.',
-        actions: [
-            { action: Action.Read, label: 'View' },
-            { action: Action.Create, label: 'Create' },
-            { action: Action.Update, label: 'Update' },
-            { action: Action.Delete, label: 'Delete' },
-        ],
-    },
-    {
-        resource: Resource.Articles,
-        label: 'Articles',
-        description: 'Create and manage articles.',
         actions: [
             { action: Action.Read, label: 'View' },
             { action: Action.Create, label: 'Create' },

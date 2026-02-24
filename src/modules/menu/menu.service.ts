@@ -2,10 +2,10 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { MenuEntity } from '@/modules/menu/menu.entity';
-import { MenuItemEntity } from '@/modules/menu/menuItem.entity';
+import { MenuItemEntity, MenuItemLabel } from '@/modules/menu/menuItem.entity';
 import { CreateMenuDto } from '@/modules/menu/dto/create-menu.dto';
 import { UpdateMenuDto } from '@/modules/menu/dto/update-menu.dto';
-import { CreateMenuItemDto } from '@/modules/menu/dto/create-menu-item.dto';
+import { CreateMenuItemDto, MenuItemLabelDto } from '@/modules/menu/dto/create-menu-item.dto';
 import { UpdateMenuItemDto } from '@/modules/menu/dto/update-menu-item.dto';
 import slugify from 'slugify';
 
@@ -166,7 +166,7 @@ export class MenuService {
     const item = this.menuItemRepository.create({
       menu,
       parent: parent ?? null,
-      label: dto.label,
+      label: this.normalizeLocalizedLabel(dto.label),
       url: dto.url ?? null,
       orderIndex,
     });
@@ -195,7 +195,9 @@ export class MenuService {
       }
     }
 
-    if (dto.label !== undefined) item.label = dto.label;
+    if (dto.label !== undefined) {
+      item.label = this.normalizeLocalizedLabel(dto.label);
+    }
     if (dto.url !== undefined) item.url = dto.url ?? null;
     if (dto.orderIndex !== undefined) item.orderIndex = dto.orderIndex;
 
@@ -226,7 +228,7 @@ export class MenuService {
     return slug;
   }
 
-  private async getNextOrderIndex(menu: MenuEntity, parentId?: number): Promise<number> {
+  private async getNextOrderIndex(menu: MenuEntity, parentId?: number | null): Promise<number> {
     const where: any = { menu: { id: menu.id } };
     where.parent = parentId ? ({ id: parentId } as any) : null;
     const siblings = await this.menuItemRepository.find({ where });
@@ -238,12 +240,50 @@ export class MenuService {
   private mapItem(i: MenuItemEntity) {
     return {
       id: i.id,
-      label: i.label,
+      label: this.toLocalizedLabel(i.label),
       url: i.url ?? null,
       orderIndex: i.orderIndex,
       parentId: i.parent ? i.parent.id : null,
       createdAt: i.createdAt,
       updatedAt: i.updatedAt,
     };
+  }
+
+  private normalizeLocalizedLabel(input: MenuItemLabelDto | string | null | undefined): MenuItemLabel {
+    const label = this.toLocalizedLabel(input);
+    if (!label.en && !label.km) {
+      throw new HttpException('label.en or label.km is required', HttpStatus.BAD_REQUEST);
+    }
+    return label;
+  }
+
+  private toLocalizedLabel(input: MenuItemLabelDto | MenuItemLabel | string | null | undefined): MenuItemLabel {
+    if (typeof input === 'string') {
+      const value = this.normalizeLabelText(input);
+      return {
+        en: value,
+        km: null,
+      };
+    }
+
+    if (!input || typeof input !== 'object') {
+      return {
+        en: null,
+        km: null,
+      };
+    }
+
+    return {
+      en: this.normalizeLabelText((input as MenuItemLabelDto).en),
+      km: this.normalizeLabelText((input as MenuItemLabelDto).km),
+    };
+  }
+
+  private normalizeLabelText(value: unknown): string | null {
+    if (typeof value !== 'string') {
+      return null;
+    }
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : null;
   }
 }

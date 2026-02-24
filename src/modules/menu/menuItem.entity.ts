@@ -1,6 +1,11 @@
 import { Column, CreateDateColumn, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { MenuEntity } from '@/modules/menu/menu.entity';
 
+export interface MenuItemLabel {
+  en?: string | null;
+  km?: string | null;
+}
+
 @Entity({ name: 'menu_items' })
 export class MenuItemEntity {
   @PrimaryGeneratedColumn('increment')
@@ -17,8 +22,8 @@ export class MenuItemEntity {
   @OneToMany(() => MenuItemEntity, (item) => item.parent)
   children?: MenuItemEntity[];
 
-  @Column({ length: 200 })
-  label: string;
+  @Column({ type: 'jsonb' })
+  label: MenuItemLabel;
 
   @Column({ type: 'varchar', length: 500, nullable: true })
   url?: string | null;
