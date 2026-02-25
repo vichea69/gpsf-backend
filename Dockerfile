@@ -14,4 +14,4 @@ COPY package*.json ./
 RUN npm install --omit=dev --legacy-peer-deps
 COPY .env .env
 EXPOSE 3001
-CMD ["node", "dist/main.js"]
+CMD ["npm", "run", "start:prod"]
