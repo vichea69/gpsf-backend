@@ -60,25 +60,25 @@ export class ContactService {
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: number) {
     const item = await this.repo.findOne({ where: { id } });
     if (!item) throw new NotFoundException("Contact not found");
     return item;
   }
 
-  async update(id: string, dto: UpdateContactDto) {
+  async update(id: number, dto: UpdateContactDto) {
     const item = await this.findOne(id);
     Object.assign(item, dto);
     return this.repo.save(item);
   }
 
-  async markRead(id: string, isRead: boolean) {
+  async markRead(id: number, isRead: boolean) {
     const item = await this.findOne(id);
     item.isRead = isRead;
     return this.repo.save(item);
   }
 
-  async remove(id: string) {
+  async remove(id: number) {
     const item = await this.findOne(id);
     await this.repo.remove(item);
     return { success: true };
