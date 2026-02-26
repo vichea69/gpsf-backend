@@ -41,6 +41,12 @@ export class ChangeMenuItemLabelToJsonb1772000000000 implements MigrationInterfa
               FROM information_schema.columns
               WHERE table_name = 'menu_items' AND column_name = 'label'
             ) THEN
+              UPDATE "menu_items"
+              SET "label" = jsonb_build_object('en', 'Menu item', 'km', NULL)
+              WHERE "label" IS NULL
+                 OR "label" = 'null'::jsonb
+                 OR jsonb_typeof("label") <> 'object';
+
               ALTER TABLE "menu_items" ALTER COLUMN "label" SET NOT NULL;
             END IF;
           END $$;
