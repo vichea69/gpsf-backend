@@ -25,10 +25,10 @@ export class UpdatePageDto {
   @IsOptional()
   @ValidateNested()
   @Type(() => UpdateLocalizedMetaTitleDto)
-  metaTitle?: UpdateLocalizedMetaTitleDto;
+  metaTitle?: UpdateLocalizedMetaTitleDto | null;
 
   @IsOptional()
   @ValidateNested()
   @Type(() => UpdateLocalizedMetaDescriptionDto)
-  metaDescription?: UpdateLocalizedMetaDescriptionDto;
+  metaDescription?: UpdateLocalizedMetaDescriptionDto | null;
 }

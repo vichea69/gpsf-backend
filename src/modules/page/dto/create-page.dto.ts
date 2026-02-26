@@ -16,11 +16,10 @@ export class LocalizedTitleDto {
 }
 
 export class LocalizedMetaTitleDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(255)
-  @MinLength(1)
-  en: string;
+  en?: string;
 
   @IsOptional()
   @IsString()
@@ -29,11 +28,10 @@ export class LocalizedMetaTitleDto {
 }
 
 export class LocalizedMetaDescriptionDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(500)
-  @MinLength(1)
-  en: string;
+  en?: string;
 
   @IsOptional()
   @IsString()
@@ -54,11 +52,11 @@ export class CreatePageDto {
   @IsOptional()
   @ValidateNested()
   @Type(() => LocalizedMetaTitleDto)
-  metaTitle?: LocalizedMetaTitleDto;
+  metaTitle?: LocalizedMetaTitleDto | null;
 
   @IsOptional()
   @ValidateNested()
   @Type(() => LocalizedMetaDescriptionDto)
-  metaDescription?: LocalizedMetaDescriptionDto;
+  metaDescription?: LocalizedMetaDescriptionDto | null;
 
 }
