@@ -26,6 +26,20 @@ export class WorkingGroupLocalizedTextDto {
   km?: string;
 }
 
+export class WorkingGroupDescriptionDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(2000)
+  en?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(2000)
+  km?: string;
+}
+
 export class CreateWorkingGroupDto {
   @ValidateNested()
   @Type(() => WorkingGroupLocalizedTextDto)
@@ -33,8 +47,8 @@ export class CreateWorkingGroupDto {
 
   @IsOptional()
   @ValidateNested()
-  @Type(() => WorkingGroupLocalizedTextDto)
-  description?: WorkingGroupLocalizedTextDto | null;
+  @Type(() => WorkingGroupDescriptionDto)
+  description?: WorkingGroupDescriptionDto | null;
 
   @IsOptional()
   @IsString()

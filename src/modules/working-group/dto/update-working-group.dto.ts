@@ -11,6 +11,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { WorkingGroupStatus } from '@/modules/working-group/working-group.entity';
+import { WorkingGroupDescriptionDto } from '@/modules/working-group/dto/create-working-group.dto';
 
 export class WorkingGroupLocalizedTextUpdateDto {
   @IsOptional()
@@ -33,8 +34,8 @@ export class UpdateWorkingGroupDto {
 
   @IsOptional()
   @ValidateNested()
-  @Type(() => WorkingGroupLocalizedTextUpdateDto)
-  description?: WorkingGroupLocalizedTextUpdateDto | null;
+  @Type(() => WorkingGroupDescriptionDto)
+  description?: WorkingGroupDescriptionDto | null;
 
   @IsOptional()
   @IsString()

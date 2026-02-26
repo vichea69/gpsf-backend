@@ -99,13 +99,13 @@ export class WorkingGroupService {
           ...(workingGroup.description ?? {}),
           ...dto.description,
         };
-        if (!mergedDescription.en?.trim()) {
-          throw new HttpException('Description en is required', HttpStatus.BAD_REQUEST);
-        }
-        workingGroup.description = {
-          en: mergedDescription.en,
+        const normalizedDescription = {
+          ...(mergedDescription.en !== undefined ? { en: mergedDescription.en } : {}),
           ...(mergedDescription.km !== undefined ? { km: mergedDescription.km } : {}),
         };
+        workingGroup.description = Object.keys(normalizedDescription).length
+          ? normalizedDescription
+          : null;
       }
     }
 

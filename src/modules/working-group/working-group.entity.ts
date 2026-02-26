@@ -25,7 +25,7 @@ export class WorkingGroupEntity {
   title: { en: string; km?: string };
 
   @Column({ type: 'jsonb', nullable: true })
-  description?: { en: string; km?: string } | null;
+  description?: { en?: string; km?: string } | null;
 
   @Column({ type: 'varchar', length: 500, nullable: true })
   iconUrl?: string | null;
