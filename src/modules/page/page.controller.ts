@@ -22,17 +22,11 @@ export class PageController {
 
   @Get()
   async findAll(
-    @Query('page') page?: number,
-    @Query('pageSize') pageSize?: number,
-    @Query('includeDrafts') includeDrafts?: string,
     @Query('lang') lang?: string,
-    @User() user?: UserEntity,
   ) {
-    const current = Math.max(Number(page) || 1, 1);
-    const size = Math.min(Math.max(Number(pageSize) || 10, 1), 50);
     const resolvedLang = this.normalizeLang(lang);
     // Always include both draft and published pages
-    const { items, total } = await this.pageService.findAll(current, size, true);
+    const items = await this.pageService.findAll(true);
 
     const data = items.map((p) => ({
       id: p.id,
@@ -52,11 +46,8 @@ export class PageController {
       updatedAt: p.updatedAt,
     }));
 
-    // Return minimal paginated shape
     return {
-      page: current,
-      pageSize: size,
-      total,
+      total: items.length,
       data,
     };
   }

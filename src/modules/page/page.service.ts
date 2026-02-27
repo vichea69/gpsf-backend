@@ -35,25 +35,17 @@ export class PageService {
     return await this.pageRepository.save(page);
   }
 
-  async findAll(page = 1, pageSize = 10, includeDrafts = false): Promise<{ items: PageEntity[]; total: number }> {
-    const take = Math.min(Math.max(Number(pageSize) || 10, 1), 50);
-    const current = Math.max(Number(page) || 1, 1);
-    const skip = (current - 1) * take;
-
+  async findAll(includeDrafts = false): Promise<PageEntity[]> {
     const qb = this.pageRepository.createQueryBuilder('page')
       .leftJoinAndSelect('page.author', 'author')
       .loadRelationCountAndMap('page.sectionCount', 'page.sections')
-      .orderBy('page.updatedAt', 'DESC')
-      .take(take)
-      .skip(skip);
+      .orderBy('page.updatedAt', 'DESC');
 
     if (!includeDrafts) {
       qb.andWhere('page.status = :status', { status: PageStatus.Published });
     }
 
-    const [items, total] = await qb.getManyAndCount();
-
-    return { items, total };
+    return qb.getMany();
   }
 
   async findBySlug(slug: string, includeDrafts = false): Promise<PageEntity> {
