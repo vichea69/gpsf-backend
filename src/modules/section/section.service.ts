@@ -24,6 +24,7 @@ export class SectionService {
         SectionBlockType.TEXT_BLOCK,
         SectionBlockType.STATS,
         SectionBlockType.BENEFITS,
+        SectionBlockType.WORKING_GROUP_CO_CHAIRS,
         SectionBlockType.ANNOUNCEMENT,
     ];
 
