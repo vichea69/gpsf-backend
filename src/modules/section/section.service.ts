@@ -22,6 +22,7 @@ export class SectionService {
     private readonly sectionTypesWithDirectPosts: SectionBlockType[] = [
         SectionBlockType.HERO_BANNER,
         SectionBlockType.TEXT_BLOCK,
+        SectionBlockType.ANNUAL_REPORTS,
         SectionBlockType.STATS,
         SectionBlockType.BENEFITS,
         SectionBlockType.WORKING_GROUP_CO_CHAIRS,
@@ -175,7 +176,7 @@ export class SectionService {
             pageId: page.id,
             blockType: dto.blockType,
             title: dto.title,
-            description: dto.description ?? null,
+            description: this.normalizeDescription(dto.description),
             settings: dto.settings ?? null,
             orderIndex: dto.orderIndex ?? 0,
             enabled: dto.enabled ?? true,
@@ -199,11 +200,12 @@ export class SectionService {
             section.title = { ...section.title, ...dto.title };
         }
         if (dto.description !== undefined) {
-            const merged = { ...(section.description ?? { en: "" }), ...dto.description };
-            if (!merged.en || !merged.en.trim()) {
-                throw new HttpException("Description en is required", HttpStatus.BAD_REQUEST);
+            if (dto.description === null) {
+                section.description = null;
+            } else {
+                const merged = { ...(section.description ?? {}), ...dto.description };
+                section.description = this.normalizeDescription(merged);
             }
-            section.description = merged;
         }
         if (dto.settings !== undefined) {
             section.settings = dto.settings ?? undefined;
@@ -265,5 +267,20 @@ export class SectionService {
             category: post.category ? { id: post.category.id, name: post.category.name } : null,
             page: post.page ? { id: post.page.id, title: post.page.title, slug: post.page.slug } : null,
         };
+    }
+
+    private normalizeDescription(
+        value?: { en?: string; km?: string } | null,
+    ): { en?: string; km?: string } | null {
+        if (value === undefined || value === null) {
+            return null;
+        }
+
+        const normalized = {
+            ...(value.en !== undefined ? { en: value.en } : {}),
+            ...(value.km !== undefined ? { km: value.km } : {}),
+        };
+
+        return Object.keys(normalized).length ? normalized : null;
     }
 }

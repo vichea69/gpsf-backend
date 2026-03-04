@@ -14,6 +14,7 @@ import { PostEntity } from '@/modules/post/post.entity';
 export enum SectionBlockType {
   HERO_BANNER = 'hero_banner',
   TEXT_BLOCK = 'text_block',
+  ANNUAL_REPORTS = 'annual_reports',
   STATS = 'stats',
   BENEFITS = 'benefits',
   POST_LIST = 'post_list',
@@ -52,7 +53,7 @@ export class SectionEntity {
   title: { en: string; km?: string };
 
   @Column({ type: 'jsonb', nullable: true })
-  description?: { en: string; km?: string };
+  description?: { en?: string; km?: string } | null;
 
   @Column({ type: 'jsonb', nullable: true })
   settings?: SectionSettings;

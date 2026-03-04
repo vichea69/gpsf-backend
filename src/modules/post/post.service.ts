@@ -341,18 +341,10 @@ export class PostService {
         const documentEnFile = files?.documentEn ?? legacyDocumentFile;
         const documentKmFile = files?.documentKm;
 
-        const previousCoverImage = post.coverImage ?? null;
         if (coverImageFile?.buffer) {
             post.coverImage = await this.uploadCoverImage(coverImageFile);
-            if (previousCoverImage) {
-                this.removeLocalFile(previousCoverImage);
-            }
         } else if (dto.coverImage !== undefined) {
-            const normalized = this.normalizeOptionalString(dto.coverImage);
-            post.coverImage = normalized;
-            if (previousCoverImage && previousCoverImage !== normalized) {
-                this.removeLocalFile(previousCoverImage);
-            }
+            post.coverImage = this.normalizeOptionalString(dto.coverImage);
         }
 
         post.documents = await this.resolveNextDocuments(

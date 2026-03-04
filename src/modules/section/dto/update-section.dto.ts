@@ -70,7 +70,7 @@ export class UpdateSectionDto {
     @IsOptional()
     @ValidateNested()
     @Type(() => LocalizedDescriptionDto)
-    description?: LocalizedDescriptionDto;
+    description?: LocalizedDescriptionDto | null;
 
     @IsOptional()
     @ValidateNested()

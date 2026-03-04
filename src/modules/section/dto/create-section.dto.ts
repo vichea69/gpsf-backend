@@ -27,10 +27,10 @@ export class LocalizedTitleDto {
 }
 
 export class LocalizedDescriptionDto {
+    @IsOptional()
     @IsString()
-    @IsNotEmpty()
     @MaxLength(500)
-    en: string;
+    en?: string;
 
     @IsOptional()
     @IsString()
@@ -70,7 +70,7 @@ export class CreateSectionDto {
     @IsOptional()
     @ValidateNested()
     @Type(() => LocalizedDescriptionDto)
-    description?: LocalizedDescriptionDto;
+    description?: LocalizedDescriptionDto | null;
 
     @IsOptional()
     @ValidateNested()

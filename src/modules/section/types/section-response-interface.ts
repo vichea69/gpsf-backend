@@ -7,6 +7,11 @@ export interface LocalizedText {
     km?: string;
 }
 
+export interface OptionalLocalizedText {
+    en?: string;
+    km?: string;
+}
+
 export interface PostLocalizedText {
     en?: string;
     km?: string;
@@ -21,7 +26,7 @@ export interface SectionBlock {
     id: number;
     type: SectionBlockType;
     title: LocalizedText;
-    description?: LocalizedText | null;
+    description?: OptionalLocalizedText | null;
     settings?: SectionSettings | null;
     orderIndex: number;
     enabled: boolean;
