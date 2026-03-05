@@ -39,7 +39,7 @@ export class PostEntity {
     title: { en?: string; km?: string };
 
     @Column({ type: 'jsonb', nullable: true })
-    description?: { en?: string; km?: string };
+    description?: { en?: string; km?: string } | null;
 
     @Column({ type: 'varchar', unique: true, length: 240, nullable: true })
     slug?: string | null;

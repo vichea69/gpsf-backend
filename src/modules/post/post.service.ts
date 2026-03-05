@@ -63,6 +63,10 @@ export class PostService {
         const initialStatus = desiredStatus ?? PostStatus.Draft;
         const publishedAt = this.parseOptionalDate(dto.publishedAt, 'publishedAt');
         const expiredAt = this.parseOptionalDate(dto.expiredAt, 'expiredAt');
+        const normalizedDescription =
+            dto.description !== undefined
+                ? this.normalizeLocalizedText(dto.description, 'Description', false)
+                : undefined;
         this.assertDateRange(publishedAt, expiredAt);
 
         if (slug) {
@@ -76,8 +80,8 @@ export class PostService {
             title: normalizedTitle,
             slug: slug ?? null,
             description:
-                dto.description !== undefined
-                    ? this.normalizeLocalizedText(dto.description, 'Description', true)
+                normalizedDescription !== undefined
+                    ? (Object.keys(normalizedDescription).length ? normalizedDescription : null)
                     : undefined,
             content:
                 dto.content !== undefined
@@ -256,11 +260,16 @@ export class PostService {
         }
 
         if (dto.description !== undefined) {
-            post.description = this.normalizeLocalizedText(
-                {...(post.description ?? {}), ...dto.description},
-                'Description',
-                true,
-            );
+            if (dto.description === null) {
+                post.description = null;
+            } else {
+                const mergedDescription = this.normalizeLocalizedText(
+                    {...(post.description ?? {}), ...dto.description},
+                    'Description',
+                    false,
+                );
+                post.description = Object.keys(mergedDescription).length ? mergedDescription : null;
+            }
         }
 
         const nextStatus = this.resolveStatusFromInput(dto.status, dto.isPublished);

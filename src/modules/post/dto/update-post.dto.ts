@@ -71,7 +71,7 @@ export class UpdatePostDto {
             return undefined;
         }
         if (value === null) {
-            return undefined;
+            return null;
         }
         const parsed = typeof value === 'string'
             ? (() => {
@@ -116,7 +116,7 @@ export class UpdatePostDto {
             return undefined;
         }
         if (value === null) {
-            return undefined;
+            return null;
         }
         const parsed = typeof value === 'string'
             ? (() => {
@@ -129,9 +129,10 @@ export class UpdatePostDto {
             : value;
         return plainToInstance(LocalizedDescriptionUpdateDto, parsed);
     })
+    @ValidateIf((_, value) => value !== null)
     @ValidateNested()
     @Type(() => LocalizedDescriptionUpdateDto)
-    description?: LocalizedDescriptionUpdateDto;
+    description?: LocalizedDescriptionUpdateDto | null;
 
     @IsOptional()
     @Transform(({value}) => (value === '' ? undefined : value))

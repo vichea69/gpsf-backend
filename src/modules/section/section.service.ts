@@ -23,6 +23,7 @@ export class SectionService {
         SectionBlockType.HERO_BANNER,
         SectionBlockType.TEXT_BLOCK,
         SectionBlockType.ANNUAL_REPORTS,
+        SectionBlockType.ISSUES_RESPONSES,
         SectionBlockType.STATS,
         SectionBlockType.BENEFITS,
         SectionBlockType.WORKING_GROUP_CO_CHAIRS,

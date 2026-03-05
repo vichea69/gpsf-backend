@@ -15,6 +15,7 @@ export enum SectionBlockType {
   HERO_BANNER = 'hero_banner',
   TEXT_BLOCK = 'text_block',
   ANNUAL_REPORTS = 'annual_reports',
+  ISSUES_RESPONSES = 'issues_responses',
   STATS = 'stats',
   BENEFITS = 'benefits',
   POST_LIST = 'post_list',
