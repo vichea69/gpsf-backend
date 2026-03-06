@@ -164,21 +164,64 @@ export class PostService {
         page = 1,
         pageSize = 20,
         isFeatured?: boolean,
+        title?: string,
     ): Promise<{ items: PostEntity[]; total: number }> {
         const take = Math.min(Math.max(Number(pageSize) || 20, 1), 50);
         const current = Math.max(Number(page) || 1, 1);
         const skip = (current - 1) * take;
-        const where = isFeatured === undefined ? undefined : { isFeatured };
+        const qb = this.postRepository
+            .createQueryBuilder('post')
+            .leftJoinAndSelect('post.author', 'author')
+            .leftJoinAndSelect('post.category', 'category')
+            .leftJoinAndSelect('post.page', 'page')
+            .leftJoinAndSelect('post.sections', 'sections')
+            .leftJoinAndSelect('post.section', 'section')
+            .orderBy('post.createdAt', 'DESC')
+            .take(take)
+            .skip(skip);
 
-        const [items, total] = await this.postRepository.findAndCount({
-            where,
-            order: {createdAt: 'DESC'},
-            relations: ['author', 'category', 'page', 'sections', 'section'],
-            take,
-            skip,
-        });
+        if (isFeatured !== undefined) {
+            qb.andWhere('post.isFeatured = :isFeatured', {isFeatured});
+        }
+
+        const normalizedTitle = title?.trim();
+        if (normalizedTitle) {
+            qb.andWhere(
+                `(LOWER(post.title ->> 'en') LIKE :title OR LOWER(post.title ->> 'km') LIKE :title)`,
+                {title: `%${normalizedTitle.toLowerCase()}%`},
+            );
+        }
+
+        const [items, total] = await qb.getManyAndCount();
 
         return { items, total };
+    }
+
+    async searchByTitle(
+        title: string,
+        isFeatured?: boolean,
+    ): Promise<{ items: PostEntity[]; total: number }> {
+        const qb = this.postRepository
+            .createQueryBuilder('post')
+            .leftJoinAndSelect('post.author', 'author')
+            .leftJoinAndSelect('post.category', 'category')
+            .leftJoinAndSelect('post.page', 'page')
+            .leftJoinAndSelect('post.sections', 'sections')
+            .leftJoinAndSelect('post.section', 'section')
+            .orderBy('post.createdAt', 'DESC');
+
+        if (isFeatured !== undefined) {
+            qb.andWhere('post.isFeatured = :isFeatured', {isFeatured});
+        }
+
+        const normalizedTitle = title.trim();
+        qb.andWhere(
+            `(LOWER(post.title ->> 'en') LIKE :title OR LOWER(post.title ->> 'km') LIKE :title)`,
+            {title: `%${normalizedTitle.toLowerCase()}%`},
+        );
+
+        const [items, total] = await qb.getManyAndCount();
+        return {items, total};
     }
 
     async findByCategory(categoryId: number): Promise<PostEntity[]> {

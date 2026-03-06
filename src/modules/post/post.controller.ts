@@ -39,11 +39,12 @@ export class PostController {
     @Query('page') page?: number,
     @Query('pageSize') pageSize?: number,
     @Query('isFeatured') isFeatured?: string,
+    @Query('title') title?: string,
   ) {
     const current = Math.max(Number(page) || 1, 1);
     const size = Math.min(Math.max(Number(pageSize) || 20, 1), 50);
     const featuredFilter = this.parseBooleanQuery(isFeatured, 'isFeatured');
-    const { items, total } = await this.postService.findAll(current, size, featuredFilter);
+    const { items, total } = await this.postService.findAll(current, size, featuredFilter, title);
     const data = items.map((post) => this.toPostResponse(post));
     return {
       success: true,
@@ -60,6 +61,27 @@ export class PostController {
     return this.postService
       .findByCategory(categoryId)
       .then((items) => items.map((post) => this.toPostResponse(post)));
+  }
+
+  @Get('search')
+  async search(
+    @Query('q') q?: string,
+    @Query('isFeatured') isFeatured?: string,
+  ) {
+    const keyword = q?.trim();
+    if (!keyword) {
+      throw new BadRequestException('q is required');
+    }
+
+    const featuredFilter = this.parseBooleanQuery(isFeatured, 'isFeatured');
+    const { items, total } = await this.postService.searchByTitle(keyword, featuredFilter);
+    const data = items.map((post) => this.toPostResponse(post));
+    return {
+      success: true,
+      message: 'OK',
+      total,
+      data,
+    };
   }
 
   @Get('slug/:slug')
