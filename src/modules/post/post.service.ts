@@ -224,14 +224,18 @@ export class PostService {
         return {items, total};
     }
 
-    async findByCategory(categoryId: number): Promise<PostEntity[]> {
+    async findByCategory(categoryId: number, isFeatured?: boolean): Promise<PostEntity[]> {
         const category = await this.categoryRepository.findOne({where: {id: categoryId}});
         if (!category) {
             throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
         }
 
+        const where = isFeatured === undefined
+            ? {category: {id: categoryId}}
+            : {category: {id: categoryId}, isFeatured};
+
         const posts = await this.postRepository.find({
-            where: {category: {id: categoryId}},
+            where,
             order: {createdAt: 'DESC'},
             relations: ['author', 'category', 'page', 'sections', 'section'],
         });

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put, Query, UseGuards, UsePipes, ValidationPipe } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put, Query, UseGuards, UsePipes, ValidationPipe } from "@nestjs/common";
 import { CategoryService } from "@/modules/category/category.service";
 import { CreateCategoryDto } from "@/modules/category/dto/create-category.dto";
 import { UpdateCategoryDto } from "@/modules/category/dto/update-category.dto";
@@ -54,6 +54,22 @@ export class CategoryController {
         return value.en ?? value.km ?? null;
     }
 
+    private parseBooleanQuery(value: string | undefined, fieldName: string): boolean | undefined {
+        if (value === undefined || value === '') {
+            return undefined;
+        }
+
+        const normalized = String(value).trim().toLowerCase();
+        if (normalized === 'true' || normalized === '1') {
+            return true;
+        }
+        if (normalized === 'false' || normalized === '0') {
+            return false;
+        }
+
+        throw new BadRequestException(`${fieldName} must be true or false`);
+    }
+
     private toCategoryResponse(category: CategoryEntity, lang?: 'en' | 'km') {
         return this.toCategoryResponseWithSummary(category, lang);
     }
@@ -103,9 +119,13 @@ export class CategoryController {
     }
 
     @Get(':id/posts')
-    findPostsByCategory(@Param('id', ParseIntPipe) id: number) {
+    findPostsByCategory(
+        @Param('id', ParseIntPipe) id: number,
+        @Query('isFeatured') isFeatured?: string,
+    ) {
+        const featuredFilter = this.parseBooleanQuery(isFeatured, 'isFeatured');
         return this.postService
-            .findByCategory(id)
+            .findByCategory(id, featuredFilter)
             .then((items) => items.map((post) => this.toPostResponse(post)));
     }
 

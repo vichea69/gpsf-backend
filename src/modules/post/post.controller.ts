@@ -57,9 +57,13 @@ export class PostController {
   }
 
   @Get('category/:categoryId')
-  findByCategory(@Param('categoryId', ParseIntPipe) categoryId: number) {
+  findByCategory(
+    @Param('categoryId', ParseIntPipe) categoryId: number,
+    @Query('isFeatured') isFeatured?: string,
+  ) {
+    const featuredFilter = this.parseBooleanQuery(isFeatured, 'isFeatured');
     return this.postService
-      .findByCategory(categoryId)
+      .findByCategory(categoryId, featuredFilter)
       .then((items) => items.map((post) => this.toPostResponse(post)));
   }
 
