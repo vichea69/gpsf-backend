@@ -5,10 +5,11 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { CategoryEntity } from "@/modules/category/category.entity";
 import { RoleModule } from "@/modules/roles/role.module";
 import { PostModule } from "@/modules/post/post.module";
+import { PostEntity } from "@/modules/post/post.entity";
 
 @Module(
     {
-        imports: [TypeOrmModule.forFeature([CategoryEntity]), RoleModule, PostModule],
+        imports: [TypeOrmModule.forFeature([CategoryEntity, PostEntity]), RoleModule, PostModule],
         controllers: [CategoryController],
         providers: [CategoryService],
         exports: [CategoryService]

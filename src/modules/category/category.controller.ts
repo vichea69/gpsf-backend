@@ -12,6 +12,7 @@ import { UserEntity } from "@/modules/users/entities/user.entity";
 import { CategoryEntity } from "@/modules/category/category.entity";
 import { PostService } from "@/modules/post/post.service";
 import { PostEntity } from "@/modules/post/post.entity";
+import { CategoryRelationSummary } from "@/modules/category/category.service";
 
 
 @Controller("categories")
@@ -54,7 +55,22 @@ export class CategoryController {
     }
 
     private toCategoryResponse(category: CategoryEntity, lang?: 'en' | 'km') {
+        return this.toCategoryResponseWithSummary(category, lang);
+    }
+
+    private toCategoryResponseWithSummary(
+        category: CategoryEntity,
+        lang?: 'en' | 'km',
+        summary?: CategoryRelationSummary,
+    ) {
         const localized = lang === 'en' || lang === 'km';
+        const relation = summary ?? {
+            totalPosts: 0,
+            totalPages: 0,
+            totalSections: 0,
+            pages: [],
+            sections: [],
+        };
         return {
             id: category.id,
             name: localized ? this.pickLocalizedField(category.name, lang) : category.name,
@@ -64,21 +80,26 @@ export class CategoryController {
             createdBy: category.createdBy
                 ? { id: category.createdBy.id, displayName: category.createdBy.username, email: category.createdBy.email }
                 : null,
+            relation,
         };
     }
 
     @Get()
-    findAll(@Query('lang') lang?: string) {
+    async findAll(@Query('lang') lang?: string) {
         const normalized = this.normalizeLang(lang);
-        return this.categoryService.findAll().then(categories =>
-            categories.map((c) => this.toCategoryResponse(c, normalized))
+        const categories = await this.categoryService.findAll();
+        const summaryMap = await this.categoryService.getRelationSummaries(categories.map((c) => c.id));
+        return categories.map((c) =>
+            this.toCategoryResponseWithSummary(c, normalized, summaryMap.get(c.id)),
         );
     }
 
     @Get(':id')
-    findOne(@Param('id', ParseIntPipe) id: number, @Query('lang') lang?: string) {
+    async findOne(@Param('id', ParseIntPipe) id: number, @Query('lang') lang?: string) {
         const normalized = this.normalizeLang(lang);
-        return this.categoryService.findOne(id).then((c) => this.toCategoryResponse(c, normalized));
+        const category = await this.categoryService.findOne(id);
+        const summaryMap = await this.categoryService.getRelationSummaries([category.id]);
+        return this.toCategoryResponseWithSummary(category, normalized, summaryMap.get(category.id));
     }
 
     @Get(':id/posts')
@@ -93,32 +114,18 @@ export class CategoryController {
     @Permissions({ resource: Resource.Categories, actions: [Action.Create] })
     @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
     create(@User() user: UserEntity, @Body() dto: CreateCategoryDto) {
-        return this.categoryService.create(user, dto).then((c) => ({
-            id: c.id,
-            name: c.name,
-            description: c.description,
-            createdAt: c.createdAt,
-            updatedAt: c.updatedAt,
-            createdBy: c.createdBy
-                ? { id: c.createdBy.id, displayName: c.createdBy.username, email: c.createdBy.email }
-                : null,
-        }));
+        return this.categoryService
+            .create(user, dto)
+            .then((c) => this.toCategoryResponse(c));
     }
     @Put(':id')
     @UseGuards(AuthGuard, PermissionsGuard)
     @Permissions({ resource: Resource.Categories, actions: [Action.Update] })
     @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
     update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateCategoryDto) {
-        return this.categoryService.update(id, dto).then((c) => ({
-            id: c.id,
-            name: c.name,
-            description: c.description,
-            createdAt: c.createdAt,
-            updatedAt: c.updatedAt,
-            createdBy: c.createdBy
-                ? { id: c.createdBy.id, displayName: c.createdBy.username, email: c.createdBy.email }
-                : null,
-        }));
+        return this.categoryService
+            .update(id, dto)
+            .then((c) => this.toCategoryResponse(c));
     }
 
     @Delete(':id')
