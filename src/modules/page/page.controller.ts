@@ -99,6 +99,19 @@ export class PageController {
     return this.sectionService.getSectionsForPage(identifier, canViewDrafts, wantsPosts);
   }
 
+  @Get(':identifier/tree')
+  async getTree(
+    @Param('identifier') identifier: string,
+    @Query('includeDrafts') includeDrafts?: string,
+    @User() user?: UserEntity,
+  ) {
+    const isPrivileged = user?.role === Role.Admin || user?.role === Role.Editor;
+    const wantsDrafts = ['true','1','yes','y'].includes(String(includeDrafts).toLowerCase());
+    const canViewDrafts = (isPrivileged && (includeDrafts === undefined || wantsDrafts)) || (!isPrivileged && wantsDrafts);
+
+    return this.pageService.getTree(identifier, canViewDrafts);
+  }
+
   @Post()
   @UseGuards(AuthGuard, PermissionsGuard)
   @Permissions({ resource: Resource.Pages, actions: [Action.Create] })

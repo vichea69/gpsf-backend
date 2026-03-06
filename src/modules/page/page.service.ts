@@ -1,18 +1,127 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Brackets, In, Repository } from 'typeorm';
 import { PageEntity, PageStatus } from '@/modules/page/page.entity';
 import { CreatePageDto } from '@/modules/page/dto/create-page.dto';
 import { UpdatePageDto } from '@/modules/page/dto/update-page.dto';
 import slugify from 'slugify';
 import { UserEntity } from '@/modules/users/entities/user.entity';
+import { SectionBlockType, SectionEntity } from '@/modules/section/section.entity';
+import { CategoryEntity } from '@/modules/category/category.entity';
+import { PostEntity, PostStatus } from '@/modules/post/post.entity';
+
+type PageTreeCategoryNode = {
+  id: number;
+  name: { en: string; km?: string };
+  description: { en: string; km?: string } | null;
+};
+
+type PageTreePostAuthorNode = {
+  id: number;
+  displayName: string;
+  email: string;
+};
+
+type PageTreePostCategoryNode = {
+  id: number;
+  name: { en?: string; km?: string };
+};
+
+type PageTreePostPageNode = {
+  id: number;
+  title: { en: string; km?: string };
+  slug: string;
+};
+
+type PageTreePostSectionNode = {
+  id: number;
+  pageId: number;
+  blockType: SectionBlockType;
+  title: { en: string; km?: string };
+};
+
+type PageTreePostNode = {
+  id: number;
+  title: { en?: string; km?: string };
+  description: { en?: string; km?: string } | null;
+  slug: string | null;
+  content: PostEntity['content'] | null;
+  status: PostStatus;
+  isPublished: boolean;
+  publishedAt: Date | null;
+  expiredAt: Date | null;
+  isFeatured: boolean;
+  coverImage: string | null;
+  documents: {
+    en: NonNullable<PostEntity['documents']>['en'] | null;
+    km: NonNullable<PostEntity['documents']>['km'] | null;
+  };
+  documentThumbnails: {
+    en: string | null;
+    km: string | null;
+  };
+  link: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  author: PageTreePostAuthorNode | null;
+  category: PageTreePostCategoryNode | null;
+  page: PageTreePostPageNode | null;
+  section: PageTreePostSectionNode | null;
+  sections: PageTreePostSectionNode[];
+};
+
+type PageTreeSectionNode = {
+  id: number;
+  blockType: SectionBlockType;
+  title: { en: string; km?: string };
+  description: { en?: string; km?: string } | null;
+  settings: SectionEntity['settings'] | null;
+  orderIndex: number;
+  enabled: boolean;
+  counts: {
+    posts: number;
+    categories: number;
+  };
+  categories: PageTreeCategoryNode[];
+  posts: PageTreePostNode[];
+};
+
+export type PageTreeResponse = {
+  page: {
+    id: number;
+    title: { en: string; km?: string };
+    slug: string;
+    status: PageStatus;
+    publishedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+  counts: {
+    sections: number;
+    posts: number;
+    categories: number;
+  };
+  categories: PageTreeCategoryNode[];
+  sections: PageTreeSectionNode[];
+};
 
 @Injectable()
 export class PageService {
   constructor(
     @InjectRepository(PageEntity)
     private readonly pageRepository: Repository<PageEntity>,
+    @InjectRepository(SectionEntity)
+    private readonly sectionRepository: Repository<SectionEntity>,
+    @InjectRepository(PostEntity)
+    private readonly postRepository: Repository<PostEntity>,
+    @InjectRepository(CategoryEntity)
+    private readonly categoryRepository: Repository<CategoryEntity>,
   ) {}
+
+  private readonly categoryDrivenSectionTypes = new Set<SectionBlockType>([
+    SectionBlockType.POST_LIST,
+    SectionBlockType.ANNOUNCEMENT,
+  ]);
 
   async create(user: UserEntity, dto: CreatePageDto): Promise<PageEntity> {
     const slug = this.generateSlug(dto.title?.en);
@@ -144,6 +253,166 @@ export class PageService {
     await this.pageRepository.remove(page);
   }
 
+  async getTree(identifier: string, includeDrafts = false): Promise<PageTreeResponse> {
+    const page = await this.findByIdentifier(identifier, includeDrafts);
+    const sections = await this.sectionRepository.find({
+      where: { pageId: page.id },
+      order: { orderIndex: 'ASC', createdAt: 'ASC' },
+    });
+
+    const sectionIds = sections.map((section) => section.id);
+
+    const postsQuery = this.postRepository
+      .createQueryBuilder('post')
+      .leftJoinAndSelect('post.author', 'author')
+      .leftJoinAndSelect('post.category', 'category')
+      .leftJoinAndSelect('post.page', 'page')
+      .leftJoinAndSelect('post.section', 'section')
+      .leftJoinAndSelect('post.sections', 'linkedSections')
+      .where(
+        new Brackets((qb) => {
+          qb.where('page.id = :pageId', { pageId: page.id });
+          if (sectionIds.length) {
+            qb.orWhere('section.id IN (:...sectionIds)', { sectionIds });
+            qb.orWhere('linkedSections.id IN (:...sectionIds)', { sectionIds });
+          }
+        }),
+      )
+      .orderBy('post.createdAt', 'DESC');
+
+    if (!includeDrafts) {
+      postsQuery.andWhere('post.status = :status', { status: PostStatus.Published });
+    }
+
+    const rawPosts = await postsQuery.getMany();
+    const posts = Array.from(new Map(rawPosts.map((post) => [post.id, post])).values());
+
+    const postsBySectionId = new Map<number, PostEntity[]>();
+    const sectionCategoryIds = new Map<number, Set<number>>();
+    sections.forEach((section) => {
+      postsBySectionId.set(section.id, []);
+      sectionCategoryIds.set(
+        section.id,
+        new Set(
+          (section.settings?.categoryIds ?? []).filter((id): id is number => typeof id === 'number'),
+        ),
+      );
+    });
+
+    posts.forEach((post) => {
+      if (post.section?.id && postsBySectionId.has(post.section.id)) {
+        postsBySectionId.get(post.section.id)?.push(post);
+      }
+
+      post.sections?.forEach((section) => {
+        const list = postsBySectionId.get(section.id);
+        if (!list || list.some((item) => item.id === post.id)) {
+          return;
+        }
+        list.push(post);
+      });
+    });
+
+    sections.forEach((section) => {
+      if (!this.categoryDrivenSectionTypes.has(section.blockType)) {
+        return;
+      }
+
+      const categoryIds = Array.from(sectionCategoryIds.get(section.id) ?? []);
+      if (!categoryIds.length) {
+        return;
+      }
+
+      const list = postsBySectionId.get(section.id) ?? [];
+      posts.forEach((post) => {
+        const categoryId = post.category?.id;
+        if (!categoryId || !categoryIds.includes(categoryId)) {
+          return;
+        }
+        if (!list.some((item) => item.id === post.id)) {
+          list.push(post);
+        }
+      });
+      postsBySectionId.set(section.id, list);
+    });
+
+    const allCategoryIds = new Set<number>();
+    sectionCategoryIds.forEach((ids) => ids.forEach((id) => allCategoryIds.add(id)));
+    sections.forEach((section) => {
+      const sectionPosts = Array.from(
+        new Map((postsBySectionId.get(section.id) ?? []).map((post) => [post.id, post])).values(),
+      );
+
+      sectionPosts.forEach((post) => {
+        if (post.category?.id) {
+          allCategoryIds.add(post.category.id);
+        }
+      });
+    });
+
+    const categories = allCategoryIds.size
+      ? await this.categoryRepository.find({
+          where: { id: In(Array.from(allCategoryIds)) },
+          order: { createdAt: 'DESC' },
+        })
+      : [];
+    const categoryMap = new Map(categories.map((category) => [category.id, category]));
+
+    const sectionReferencedPostIds = new Set<number>();
+    const sectionNodes = sections.map((section) => {
+      const sectionPosts = Array.from(
+        new Map((postsBySectionId.get(section.id) ?? []).map((post) => [post.id, post])).values(),
+      );
+      sectionPosts.forEach((post) => sectionReferencedPostIds.add(post.id));
+
+      const relatedCategoryIds = new Set<number>(sectionCategoryIds.get(section.id) ?? []);
+      sectionPosts.forEach((post) => {
+        if (post.category?.id) {
+          relatedCategoryIds.add(post.category.id);
+        }
+      });
+
+      const relatedCategories = Array.from(relatedCategoryIds)
+        .map((id) => categoryMap.get(id))
+        .filter((category): category is CategoryEntity => Boolean(category));
+
+      return {
+        id: section.id,
+        blockType: section.blockType,
+        title: section.title,
+        description: section.description ?? null,
+        settings: section.settings ?? null,
+        orderIndex: section.orderIndex,
+        enabled: section.enabled,
+        counts: {
+          posts: sectionPosts.length,
+          categories: relatedCategories.length,
+        },
+        categories: relatedCategories.map((category) => this.toTreeCategoryNode(category)),
+        posts: sectionPosts.map((post) => this.toTreePostNode(post)),
+      };
+    });
+
+    return {
+      page: {
+        id: page.id,
+        title: page.title,
+        slug: page.slug,
+        status: page.status,
+        publishedAt: page.publishedAt ?? null,
+        createdAt: page.createdAt,
+        updatedAt: page.updatedAt,
+      },
+      counts: {
+        sections: sections.length,
+        posts: sectionReferencedPostIds.size,
+        categories: categories.length,
+      },
+      categories: categories.map((category) => this.toTreeCategoryNode(category)),
+      sections: sectionNodes,
+    };
+  }
+
   private generateSlug(titleEn: string): string {
     if (!titleEn || typeof titleEn !== 'string' || !titleEn.trim()) {
       throw new HttpException('Invalid title', HttpStatus.BAD_REQUEST);
@@ -161,5 +430,59 @@ export class PageService {
     }
 
     return page;
+  }
+
+  private toTreeCategoryNode(category: CategoryEntity): PageTreeCategoryNode {
+    return {
+      id: category.id,
+      name: category.name,
+      description: category.description ?? null,
+    };
+  }
+
+  private toTreePostNode(post: PostEntity): PageTreePostNode {
+    const documents = post.documents ?? null;
+    const documentEn = documents?.en ?? null;
+    const documentKm = documents?.km ?? null;
+
+    return {
+      id: post.id,
+      title: post.title,
+      description: post.description ?? null,
+      slug: post.slug ?? null,
+      content: post.content ?? null,
+      status: post.status,
+      isPublished: post.status === PostStatus.Published,
+      publishedAt: post.publishedAt ?? null,
+      expiredAt: post.expiredAt ?? null,
+      isFeatured: post.isFeatured ?? false,
+      coverImage: post.coverImage ?? null,
+      documents: {
+        en: documentEn,
+        km: documentKm,
+      },
+      documentThumbnails: {
+        en: documentEn?.thumbnailUrl ?? null,
+        km: documentKm?.thumbnailUrl ?? null,
+      },
+      link: post.link ?? null,
+      createdAt: post.createdAt,
+      updatedAt: post.updatedAt,
+      author: post.author
+        ? { id: post.author.id, displayName: post.author.username, email: post.author.email }
+        : null,
+      category: post.category ? { id: post.category.id, name: post.category.name } : null,
+      page: post.page ? { id: post.page.id, title: post.page.title, slug: post.page.slug } : null,
+      section: post.section
+        ? { id: post.section.id, pageId: post.section.pageId, blockType: post.section.blockType, title: post.section.title }
+        : null,
+      sections:
+        post.sections?.map((section) => ({
+          id: section.id,
+          pageId: section.pageId,
+          blockType: section.blockType,
+          title: section.title,
+        })) ?? [],
+    };
   }
 }
