@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import { IsEmail, IsOptional, IsString, Matches } from 'class-validator';
 
 export class UpdateUserDto {
@@ -11,10 +12,12 @@ export class UpdateUserDto {
     email?: string;
 
     @IsOptional()
+    @Transform(({ value }) => (value === null ? '' : value))
     @IsString()
     bio?: string;
 
     @IsOptional()
+    @Transform(({ value }) => (value === null ? '' : value))
     @IsString()
     image?: string;
 

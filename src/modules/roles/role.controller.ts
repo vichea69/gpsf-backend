@@ -48,11 +48,11 @@ export class RoleController {
         return this.roleService.getPermissionMapForRole(role);
     }
 
-    @Get(':slug')
+    @Get(':id')
     @UseGuards(AuthGuard, PermissionsGuard)
     @Permissions({ resource: Resource.Roles, actions: [Action.Read] })
-    async getRole(@Param('slug') slug: string) {
-        return this.roleService.getRoleDetail(slug);
+    async getRoleById(@Param('id', ParseIntPipe) id: number) {
+        return this.roleService.getRoleDetailById(id);
     }
 
     @Post()

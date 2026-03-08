@@ -53,7 +53,7 @@ export class WorkingGroupController {
 
   @Post()
   @UseGuards(AuthGuard, PermissionsGuard)
-  @Permissions({ resource: Resource.Pages, actions: [Action.Create] })
+  @Permissions({ resource: Resource.WorkingGroups, actions: [Action.Create] })
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
   async create(@User() user: UserEntity, @Body() dto: CreateWorkingGroupDto) {
     const item = await this.workingGroupService.create(user, dto);
@@ -62,7 +62,7 @@ export class WorkingGroupController {
 
   @Put(':id')
   @UseGuards(AuthGuard, PermissionsGuard)
-  @Permissions({ resource: Resource.Pages, actions: [Action.Update] })
+  @Permissions({ resource: Resource.WorkingGroups, actions: [Action.Update] })
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
   async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateWorkingGroupDto) {
     const item = await this.workingGroupService.update(id, dto);
@@ -71,7 +71,7 @@ export class WorkingGroupController {
 
   @Delete(':id')
   @UseGuards(AuthGuard, PermissionsGuard)
-  @Permissions({ resource: Resource.Pages, actions: [Action.Delete] })
+  @Permissions({ resource: Resource.WorkingGroups, actions: [Action.Delete] })
   async remove(@Param('id', ParseIntPipe) id: number) {
     await this.workingGroupService.remove(id);
     return { message: 'Working group deleted' };

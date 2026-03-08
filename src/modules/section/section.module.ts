@@ -6,9 +6,10 @@ import { SectionEntity } from "./section.entity";
 import { PageModule } from "@/modules/page/page.module";
 import { PostEntity } from "@/modules/post/post.entity";
 import { CategoryEntity } from "@/modules/category/category.entity";
+import { RoleModule } from "@/modules/roles/role.module";
 
 @Module({
-    imports: [TypeOrmModule.forFeature([SectionEntity, PostEntity, CategoryEntity]), forwardRef(() => PageModule)],
+    imports: [TypeOrmModule.forFeature([SectionEntity, PostEntity, CategoryEntity]), forwardRef(() => PageModule), RoleModule],
     controllers: [SectionController],
     providers: [SectionService],
     exports: [SectionService],

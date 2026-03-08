@@ -70,6 +70,23 @@ export class RoleService implements OnModuleInit {
             throw new NotFoundException(`Role '${slug}' was not found.`);
         }
 
+        return this.toRolePermissionSummary(role);
+    }
+
+    async getRoleDetailById(id: number): Promise<RolePermissionSummary> {
+        const role = await this.roleRepository.findOne({
+            where: { id },
+            relations: ['permissions'],
+        });
+
+        if (!role) {
+            throw new NotFoundException(`Role '${id}' was not found.`);
+        }
+
+        return this.toRolePermissionSummary(role);
+    }
+
+    private toRolePermissionSummary(role: RoleEntity): RolePermissionSummary {
         const matrix = this.buildPermissionMatrix(role.permissions ?? []);
         return {
             role: this.toRoleSummary(role),

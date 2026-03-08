@@ -59,9 +59,31 @@ export const RESOURCE_DEFINITIONS: ResourceDefinition[] = [
         ],
     },
     {
+        resource: Resource.Sections,
+        label: 'Sections',
+        description: 'Create and manage page sections and blocks.',
+        actions: [
+            { action: Action.Read, label: 'View' },
+            { action: Action.Create, label: 'Create' },
+            { action: Action.Update, label: 'Update' },
+            { action: Action.Delete, label: 'Delete' },
+        ],
+    },
+    {
         resource: Resource.Posts,
         label: 'Posts',
         description: 'Create and publish posts.',
+        actions: [
+            { action: Action.Read, label: 'View' },
+            { action: Action.Create, label: 'Create' },
+            { action: Action.Update, label: 'Update' },
+            { action: Action.Delete, label: 'Delete' },
+        ],
+    },
+    {
+        resource: Resource.WorkingGroups,
+        label: 'Working Groups',
+        description: 'Create and manage working group entries.',
         actions: [
             { action: Action.Read, label: 'View' },
             { action: Action.Create, label: 'Create' },
