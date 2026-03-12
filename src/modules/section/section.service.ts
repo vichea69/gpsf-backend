@@ -24,6 +24,7 @@ export class SectionService {
         SectionBlockType.TEXT_BLOCK,
         SectionBlockType.ANNUAL_REPORTS,
         SectionBlockType.ISSUES_RESPONSES,
+        SectionBlockType.WG_TEMPLATE,
         SectionBlockType.STATS,
         SectionBlockType.BENEFITS,
         SectionBlockType.WORKING_GROUP_CO_CHAIRS,
