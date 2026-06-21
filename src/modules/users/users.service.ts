@@ -16,40 +16,7 @@ import { UpdateRolePermissionsDto } from '../roles/dto/role.dto';
 import { CreateRoleDto } from '../roles/dto/role.dto';
 import { Role } from '@/modules/auth/enums/role.enum';
 import { SYSTEM_SUPER_ADMIN } from './constants/system-users';
-
-/**
- * Parse a jsonwebtoken-style duration string ("8h", "7d", "30m", "120", "60s")
- * into seconds. Used so the cookie maxAge on the dashboard matches whatever
- * TTL we configured via env. Falls back to `fallbackSeconds` on bad input.
- */
-function durationToSeconds(value: string, fallbackSeconds: number): number {
-  const raw = typeof value === 'string' ? value.trim() : '';
-  if (!raw) return fallbackSeconds;
-  // Pure number → seconds (matches jsonwebtoken behavior).
-  const asNumber = Number(raw);
-  if (Number.isFinite(asNumber) && asNumber > 0) return Math.floor(asNumber);
-
-  const match = /^(\d+)\s*(ms|s|m|h|d|w|y)$/i.exec(raw);
-  if (!match) return fallbackSeconds;
-  const n = Number(match[1]);
-  const unit = match[2].toLowerCase();
-  const SECOND = 1;
-  const MINUTE = 60;
-  const HOUR = 60 * 60;
-  const DAY = 60 * 60 * 24;
-  const WEEK = DAY * 7;
-  const YEAR = DAY * 365;
-  switch (unit) {
-    case 'ms': return Math.max(1, Math.floor(n / 1000));
-    case 's': return n * SECOND;
-    case 'm': return n * MINUTE;
-    case 'h': return n * HOUR;
-    case 'd': return n * DAY;
-    case 'w': return n * WEEK;
-    case 'y': return n * YEAR;
-    default: return fallbackSeconds;
-  }
-}
+import { durationToSeconds } from '@/common/utils/durationToSeconds';
 
 @Injectable()
 export class UsersService implements OnApplicationBootstrap {

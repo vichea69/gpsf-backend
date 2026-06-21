@@ -1,12 +1,23 @@
 import {CallHandler, ExecutionContext, Injectable, NestInterceptor} from '@nestjs/common';
 import {Observable} from 'rxjs';
 import {map} from 'rxjs/operators';
+import {durationToSeconds} from '@/common/utils/durationToSeconds';
 
 type AnyObject = Record<string, any>;
 
 const API_VERSION = 'v1';
-const ACCESS_TOKEN_EXPIRES_IN = 900; // 15 minutes
-const REFRESH_TOKEN_EXPIRES_IN = 604800; // 7 days
+// Token TTLs are read from env so the meta we return to the client always
+// matches the real cookie maxAge (set in auth.controller) and the JWT exp
+// (set in users.service). Previously these were hardcoded to 900/604800,
+// which desynced from JWT_ACCESS_EXPIRES_IN/JWT_REFRESH_EXPIRES_IN.
+const ACCESS_TOKEN_EXPIRES_IN = durationToSeconds(
+    process.env.JWT_ACCESS_EXPIRES_IN,
+    60 * 60 * 2, // 2h fallback
+);
+const REFRESH_TOKEN_EXPIRES_IN = durationToSeconds(
+    process.env.JWT_REFRESH_EXPIRES_IN,
+    60 * 60 * 24 * 7, // 7d fallback
+);
 const TIMEZONE = process.env.TIMEZONE || 'Asia/Phnom_Penh';
 
 function getPart(parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTypes): string {
